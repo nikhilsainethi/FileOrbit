@@ -7,12 +7,30 @@ struct SettingsView: View {
     @ObservedObject var model: AppModel
     @State private var loginEnabled = SMAppService.mainApp.status == .enabled
     @State private var settingsError: String?
+    @AppStorage("FileOrbit.appearance") private var appearance = "system"
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Make yourself at home.").font(.system(size: 25, weight: .medium, design: .rounded))
                     Text("FileOrbit runs locally. No uploads, accounts, or telemetry.").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                if !FileOrbitRuntime.isPreview {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Picker("Appearance", selection: $appearance) {
+                                Text("System").tag("system")
+                                Text("Light").tag("light")
+                                Text("Dark").tag("dark")
+                            }
+                            .pickerStyle(.segmented)
+                            .onChange(of: appearance) { _, value in
+                                NSApp.appearance = FileOrbitRuntime.appearance(for: value)
+                            }
+                            Text("Dark uses the graphite and smoky-lavender palette. This changes FileOrbit only.")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }.padding(12)
+                    }
                 }
                 if FileOrbitRuntime.isPreview {
                     Label("This preview uses Choose File. Double-tap Command stays with your installed FileOrbit.", systemImage: "eye")
@@ -63,9 +81,9 @@ struct SettingsView: View {
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Originals always stay intact.").font(.system(size: 12, weight: .medium))
-                    Text("New files are saved beside the source. Compression saves a copy only when it is smaller. PDF-to-Office, OCR, animated/multipage image conversion, and batch conversion are not included in version 0.1.")
+                    Text("New files are saved beside the source. Compression saves a copy only when it is smaller. PDF-to-Office, OCR, animated/multipage image conversion, and batch conversion are not included in this preview.")
                         .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    Text("FileOrbit 0.1.0 · Local preview").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 8)
+                    Text("FileOrbit \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development") · Preview").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 8)
                 }
             }.padding(28)
         }

@@ -4,9 +4,12 @@
 
 FileOrbit is a native macOS menu-bar app that brings a glass conversion wheel to the file you selected in Finder. Convert images, PDFs and documents, or make a smaller copy—all on your Mac, without uploading the file or opening another file picker.
 
-<img src="docs/images/glass-wheel.png" alt="FileOrbit's glass conversion wheel for a selected image" width="420">
+<p>
+  <img src="docs/images/glass-wheel-light.jpg" alt="Frameless FileOrbit conversion wheel in Light mode" width="340">
+  <img src="docs/images/glass-wheel-dark.jpg" alt="Frameless FileOrbit conversion wheel in graphite and smoky lavender Dark mode" width="340">
+</p>
 
-[Download the Apple Silicon preview](https://github.com/nikhilsainethi/FileOrbit/releases/download/v0.1.0-preview.2/FileOrbit-macOS-arm64.zip) · [Installation guide](docs/INSTALL.md) · [Release notes](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.1.0-preview.2)
+[Download the Apple Silicon preview](https://github.com/nikhilsainethi/FileOrbit/releases/download/v0.2.0-preview.1/FileOrbit-macOS-arm64.zip) · [Installation guide](docs/INSTALL.md) · [Release notes](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.2.0-preview.1)
 
 > **Preview release:** the download is ad hoc signed, but it is **not Developer ID signed or notarized by Apple**. macOS may block its first launch. Read the [first-launch instructions](docs/INSTALL.md#first-launch-and-macos-security) before installing. The binary is for Apple Silicon; macOS 15+ is the deployment target, and macOS 27.2 on Apple Silicon is the locally tested configuration. Older macOS versions and Intel builds still need verification.
 
@@ -26,7 +29,7 @@ See the [installation guide](docs/INSTALL.md) for permissions, troubleshooting, 
 - **Works where your files are.** Double-tap Command in Finder to open actions for the current selection.
 - **Runs locally.** No conversion servers, accounts, subscriptions or telemetry.
 - **Keeps originals intact.** Existing files are never overwritten; compression saves a copy only when it is smaller.
-- **Fits macOS.** Native menu-bar app, keyboard navigation and Liquid Glass on macOS 26+, with a native material fallback on earlier versions.
+- **Fits macOS.** Frameless floating petals, a compact file hub, keyboard navigation and Liquid Glass on macOS 26+, with a native material fallback on earlier versions. Choose System, Light or Dark appearance in Settings.
 - **Shows available actions.** Formats depend on the selected file, macOS encoders and installed local converters.
 
 | Input | Convert to | Compress |
@@ -44,11 +47,11 @@ See the [installation guide](docs/INSTALL.md) for permissions, troubleshooting, 
 
 ## Using the wheel
 
-Click an action, or use the arrow keys and press **Return**. **Escape** or a click outside closes the idle wheel. Compression offers size/quality presets; the app explains when a file is already small enough that it cannot produce a smaller copy.
+Click an action, or use the arrow keys and press **Return**. **Escape** or a click outside closes the idle wheel. Compression stays at the bottom of the wheel and opens three size/quality presets; the app explains when a file is already small enough that it cannot produce a smaller copy.
 
 New files use `-converted` or `-compressed` names beside the source. Name collisions receive a unique name. Multipage image exports are placed in a new folder. The result screen shows the output size and a **Show in Finder** button.
 
-FileOrbit also supports drag-and-drop, **Choose a file**, and Finder’s **Open With** menu. These are optional entry points and work without shortcut permissions. Launch at login is optional and off by default.
+Settings and **Choose File…** are available from the menu-bar icon. FileOrbit also supports drag-and-drop, **Choose a file**, and Finder’s **Open With** menu. These are optional entry points and work without shortcut permissions. Launch at login is optional and off by default.
 
 ## Current limits
 

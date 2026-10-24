@@ -15,7 +15,7 @@ Older macOS versions and Intel builds have not yet been verified. This is an ear
 
 ## Download and install
 
-1. Open the [v0.1.0-preview.2 release](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.1.0-preview.2).
+1. Open the [v0.2.0-preview.1 release](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.2.0-preview.1).
 2. Under **Assets**, download **FileOrbit-macOS-arm64.zip**. The automatically generated “Source code” archives contain the project, not the app.
 3. Double-click the ZIP to extract it.
 4. Drag **FileOrbit.app** into your **Applications** folder. Grant permissions to this installed copy, rather than to a copy in Downloads or a synced folder.
@@ -39,7 +39,7 @@ Do not disable Gatekeeper globally or remove quarantine attributes to install Fi
 
 ## Enable the Finder shortcut
 
-1. Open **FileOrbit → Settings** from the menu-bar icon or the wheel’s gear button.
+1. Open **FileOrbit → Settings** from the menu-bar icon.
 2. Click **Enable in Accessibility**.
 3. In System Settings, enable **FileOrbit** under **Privacy & Security → Accessibility**. On the tested macOS 27 build, the pane is named **Device Control and Data Access**. Authenticate with macOS if requested.
 4. Return to FileOrbit. Click **Refresh** if the permission status has not changed, then quit and reopen FileOrbit once if needed.
@@ -70,6 +70,8 @@ Select one supported file in Finder, double-tap **⌘**, then choose an action. 
 Results are saved beside the source as `name-converted.ext` or `name-compressed.ext`. Existing files are never overwritten. Name collisions receive a unique name; multipage exports use a new folder. Compression only saves a result when it is smaller. Use **Show in Finder** on the result screen to reveal the output.
 
 The source folder must be writable. Select a downloaded local file; files that exist only in cloud storage may need to download first. FileOrbit performs conversions locally, but a result saved in a cloud-synced folder follows that folder’s normal sync behavior.
+
+**Settings → Appearance** offers System, Light and Dark. Dark uses the graphite-and-smoky-lavender palette; the choice changes FileOrbit only and persists after relaunch.
 
 Launch at login is available in Settings and is off by default. There is no automatic updater in this preview.
 

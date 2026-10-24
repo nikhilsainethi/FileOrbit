@@ -9,6 +9,13 @@ enum FileOrbitRuntime {
     static func recordPreview(_ event: String) {
         if isPreview { previewLogger.notice("\(event, privacy: .public)") }
     }
+    static func appearance(for value: String) -> NSAppearance? {
+        switch value {
+        case "light": return NSAppearance(named: .aqua)
+        case "dark": return NSAppearance(named: .darkAqua)
+        default: return nil
+        }
+    }
     static var displayName: String { isPreview ? "FileOrbit Preview" : "FileOrbit" }
 }
 
@@ -44,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var activationObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.appearance = FileOrbitRuntime.appearance(for: UserDefaults.standard.string(forKey: "FileOrbit.appearance") ?? "system")
         NSApp.setActivationPolicy(FileOrbitRuntime.isPreview || CommandLine.arguments.contains("--ui-test") ? .regular : .accessory)
         createStatusItem()
         model.onSettings = { [weak self] in self?.showSettings() }

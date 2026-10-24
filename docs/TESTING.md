@@ -10,7 +10,7 @@
 
 ## Automated source tests
 
-**69 tests in 7 suites passed, zero failures.** Latest local full run: 4.625 seconds after build. Real qpdf, resvg, and LibreOffice paths were supplied/detected; their integration checks were exercised.
+**77 tests in 9 suites passed, zero failures.** The 0.2.0-preview.1 release run took 6.257 seconds after build. Real qpdf, resvg, and LibreOffice paths were supplied/detected; their integration checks were exercised.
 
 Coverage includes:
 
@@ -24,6 +24,7 @@ Coverage includes:
 - Literal Unicode/space-containing subprocess arguments, bounded output, deadlines, cancellation and child-process cleanup.
 - Real TXT→PDF/DOCX→TXT and two-slide PPTX→PDF/images; DOCX media compression preserves XML and relationships.
 - Unsafe ZIP paths, symlinks, signed DOCX and linked Office-resource rejection.
+- Rounded-petal hit testing and transparent gaps for one through seven actions, bottom compression placement, keyboard selection wrapping, zero-size geometry, and screen-edge/negative-origin panel placement.
 
 Regression failures were observed before implementing fixes for stale selection, Caps Lock/Command event handling, PDF annotations/rotation, and encoded SVG resource references. The first GitHub run also exposed a test that included shared-queue timer delay in its cancellation deadline. The test now waits for a real child process, signals cancellation from an independent thread, and measures from that request while retaining the three-second bound and checking child cleanup. Converter behavior was unchanged.
 
@@ -37,7 +38,7 @@ The script locates real Swift Testing in standalone Command Line Tools. Full Xco
 
 ## Packaged release checks
 
-**19 packaged-app checks passed with no skips**, 8.958 seconds, against the public preview arm64 ZIP.
+**19 packaged-app checks passed with no skips**, 7.876 seconds, against the 0.2.0-preview.1 arm64 release ZIP before installation.
 
 The verifier extracts the ZIP into an independent system temporary directory and checks:
 
@@ -62,6 +63,21 @@ python3 scripts/verify-package.py /path/to/FileOrbit-macOS-arm64.zip
 Exit 0 means all checks passed. Exit 3 explicitly reports partial coverage from unavailable engines/encoders. Exit 1 means failure.
 
 ## Native UI observations
+
+### 0.2.0-preview.1
+
+The installed release was extracted from the tested ZIP. Both executable hashes matched the archive, the app reported version 0.2.0, and strict recursive signature verification passed. System, Light and Dark appearance selections were exercised; System persisted after relaunch. LibreOffice, bundled qpdf and bundled resvg were available. The app permission entry was refreshed for the final ad-hoc signature, and the relaunched listener reported trusted access with both global and local event monitors registered.
+
+The installed wheel completed arrow-key/Return PNG→HEIC conversion (199,308 bytes at 4,096 × 4,096) and Small-preset PNG compression (743,748 → 528,209 bytes at 1,600 × 1,600). The source SHA-256 remained unchanged. A pre-existing compressed copy was preserved and the new copy received a unique name. Escape returned from compression to the action wheel.
+
+**Live shortcut on the exact release build:** the physical left-Command sequence at 15:24:46.035 local time was recognized with Finder active and reached the selection handler. The wheel showed the selected `Photo sample.jpg` directly, without a file picker. Return then produced `Photo sample-converted.pdf`, which passed qpdf validation. The installed GUI executable still matched the tested archive's SHA-256 (`0e6e4ff9bdb4e5e89a63743d3bdca32cf5b1b900a932fb22aac035b1f1fc1632`).
+
+Initial post-update attempts produced no modifier events in the diagnostic log despite authorized access. A temporary read-only Quartz listener was used to compare delivery; both it and the existing AppKit listener subsequently received the same physical gesture. The temporary instrumentation was removed, the exact tested release was restored and reauthorized, and the release check above succeeded. The cause of the earlier missing events was not established; no speculative shortcut-backend change was included. Diagnostic logging was disabled after validation.
+
+### Earlier 0.1.0 preview verification
+
+The observations below describe the earlier public build and are retained as historical evidence.
+
 
 The installed app was opened and inspected using native UI automation. Observed successful PNG→JPEG conversion, arrow-key/Return HEIC conversion, result sizes, return navigation, native file picking, compression preset selection, successful PNG compression (744 KB to 528 KB), the no-larger-output alert, and Settings showing all three available engines. The glass wheel, compression controls, result screen and Settings were visually inspected. A native-background compositing issue that hid unchanged header/footer controls after processing was reproduced and resolved by using SwiftUI native material; the final result screen was re-inspected. Reopening the normal background app displays its command panel.
 
