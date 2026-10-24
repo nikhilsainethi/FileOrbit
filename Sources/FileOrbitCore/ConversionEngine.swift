@@ -39,10 +39,10 @@ public struct ConversionEngine: Sendable {
             compressed = false
             switch kind {
             case .image:
-                files = try NativeConverter.convert(input: input, to: format, workspace: workspace, cancellation: cancellation)
+                files = try NativeConverter.convert(input: input, to: format, workspace: workspace, cancellation: cancellation, environment: environment)
                 note = format == .jpg ? "Transparent areas use a white background. Image metadata may change." : "Image metadata may change during conversion."
             case .pdf:
-                files = try NativeConverter.convertPDF(input: input, to: format, workspace: workspace, cancellation: cancellation)
+                files = format == .txt ? try NativeConverter.convertPDF(input: input, to: format, workspace: workspace, cancellation: cancellation) : try PDFDocumentTools.export(input: input, format: format, mode: .allPages, workspace: workspace, cancellation: cancellation, environment: environment)
                 note = format == .txt ? "Extracted the existing text layer; reading order follows the PDF." : "Pages rendered at up to 144 DPI (8,192 pixels per side / 32 megapixels per page)."
             case .docx, .pptx, .text:
                 files = try OfficeConverter.convert(input: input, to: format, workspace: workspace, environment: environment, cancellation: cancellation)
@@ -66,6 +66,29 @@ public struct ConversionEngine: Sendable {
                 note = "Optimized embedded raster images. Document XML and image relationships are preserved."
             default: throw ConversionError.unsupported("Compression is available for images, PDF and DOCX files.")
             }
+        case .exportPDF(let format, let mode):
+            guard kind == .pdf else { throw ConversionError.unsupported("Page export requires a PDF document.") }
+            compressed = false
+            files = try PDFDocumentTools.export(input: input, format: format, mode: mode, workspace: workspace, cancellation: cancellation, environment: environment)
+            note = mode == .mergedTallImage ? "Pages combined top to bottom at up to 144 DPI; bounded to 8,192 pixels wide, 32,768 pixels tall and 32 megapixels total. Smaller pages are centered on white." : "Pages rendered at up to 144 DPI (8,192 pixels per side / 32 megapixels per page)."
+        case .splitPDF:
+            guard kind == .pdf else { throw ConversionError.unsupported("Split requires a PDF document.") }
+            compressed = false
+            files = try PDFDocumentTools.split(input: input, workspace: workspace, cancellation: cancellation)
+            note = "Saved each page as a separate PDF. Document-wide bookmarks and links between pages may not carry over."
+        case .ocrText:
+            compressed = false
+            files = try PDFDocumentTools.ocr(input: input, workspace: workspace, cancellation: cancellation)
+            note = "Recognized locally with Apple Vision. Check spelling and reading order; OCR may misread small, handwritten or complex text."
+        case .scrubMetadata:
+            compressed = false
+            files = try MetadataScrubber.scrub(input: input, environment: environment, workspace: workspace, cancellation: cancellation)
+            note = kind == .pdf ? "Removed document Info (including dates), document-level XMP and original document IDs. Page content, annotations, attachments and metadata inside embedded objects remain; this is not redaction." : "Rebuilt oriented pixels as lossless PNG without source EXIF, GPS, IPTC or XMP. Dimensions and color information needed to display the image remain."
+        case .redactPDF(let regions):
+            guard kind == .pdf else { throw ConversionError.unsupported("Redaction requires a PDF document.") }
+            compressed = false
+            files = try PDFDocumentTools.redact(input: input, regions: regions, workspace: workspace, cancellation: cancellation)
+            note = "Selected regions permanently replaced with black pixels. Every page was rebuilt at up to 144 DPI / 16 megapixels, removing underlying text, source metadata, attachments and annotations. Searchable text, vectors, forms and links are lost. Review the output before sharing."
         }
         try cancellation.check()
         let outputBytes = try validate(files: files, workspace: workspace)
@@ -90,7 +113,7 @@ public struct ConversionEngine: Sendable {
             }
             total += Int64(count)
             switch file.pathExtension.lowercased() {
-            case "png", "jpg", "jpeg", "heic", "tiff":
+            case "png", "jpg", "jpeg", "heic", "tiff", "webp":
                 guard let source = CGImageSourceCreateWithURL(file as CFURL, nil), CGImageSourceGetCount(source) == 1,
                       CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else {
                     throw ConversionError.failed("The output image could not be reopened.")
@@ -111,13 +134,7 @@ public struct ConversionEngine: Sendable {
 
     private func compressPDF(input: URL, preset: CompressionPreset, workspace: URL, cancellation: CancellationToken) throws -> [URL] {
         guard let qpdf = environment.qpdfURL else { throw ConversionError.missingDependency("Install qpdf to enable local PDF compression.") }
-        let original = try NativeConverter.readablePDF(input)
-        let signatureWidget = (0..<original.pageCount).contains { index in
-            original.page(at: index)?.annotations.contains { $0.widgetFieldType == .signature } == true
-        }
-        guard !signatureWidget, !hasSignature(input) else {
-            throw ConversionError.unsupported("This PDF is signed or contains signature fields. Compression could invalidate a signature, so the original is unchanged.")
-        }
+        let original = try PDFSafety.modifiableDocument(input)
         let output = workspace.appendingPathComponent("compressed.pdf")
         var args = ["--object-streams=generate", "--stream-data=compress", "--recompress-flate", "--compression-level=9"]
         if preset != .gentle { args += ["--optimize-images", "--jpeg-quality=\(preset == .balanced ? 82 : 62)"] }
@@ -131,32 +148,8 @@ public struct ConversionEngine: Sendable {
         return [output]
     }
 
-    private func hasSignature(_ input: URL) -> Bool {
-        guard let pdf = CGPDFDocument(input as CFURL), let catalog = pdf.catalog else { return true }
-        var permissions: CGPDFDictionaryRef?
-        if CGPDFDictionaryGetDictionary(catalog, "Perms", &permissions) { return true }
-        var form: CGPDFDictionaryRef?
-        guard CGPDFDictionaryGetDictionary(catalog, "AcroForm", &form), let form else { return false }
-        var fields: CGPDFArrayRef?
-        guard CGPDFDictionaryGetArray(form, "Fields", &fields), let fields else { return false }
-        return signedField(in: fields, depth: 0)
-    }
-
-    private func signedField(in fields: CGPDFArrayRef, depth: Int) -> Bool {
-        guard depth < 32 else { return true }
-        for index in 0..<CGPDFArrayGetCount(fields) {
-            var field: CGPDFDictionaryRef?
-            guard CGPDFArrayGetDictionary(fields, index, &field), let field else { continue }
-            var name: UnsafePointer<CChar>?
-            if CGPDFDictionaryGetName(field, "FT", &name), let name, String(cString: name) == "Sig" { return true }
-            var children: CGPDFArrayRef?
-            if CGPDFDictionaryGetArray(field, "Kids", &children), let children, signedField(in: children, depth: depth + 1) { return true }
-        }
-        return false
-    }
-
     private func convertSVG(input: URL, format: OutputFormat, workspace: URL, cancellation: CancellationToken) throws -> [URL] {
-        guard format == .png || format == .jpg else { throw ConversionError.unsupported("SVG can be rendered to PNG or JPEG.") }
+        guard format == .png || format == .jpg || format == .webp else { throw ConversionError.unsupported("SVG can be rendered to PNG, JPEG or WebP.") }
         guard let resvg = environment.resvgURL else { throw ConversionError.missingDependency("Install resvg to render SVG files locally.") }
         let data = try Data(contentsOf: input)
         guard data.count <= 16 * 1024 * 1024 else { throw ConversionError.unsupported("SVG files must be smaller than 16 MB.") }
@@ -168,9 +161,9 @@ public struct ConversionEngine: Sendable {
         let image = try NativeConverter.decodedImage(png)
         guard image.width <= 2048, image.height <= 2048 else { throw ConversionError.failed("The SVG renderer exceeded the requested image dimensions.") }
         if format == .png { return [png] }
-        let jpeg = workspace.appendingPathComponent("render.jpg")
-        try NativeConverter.encode(image, to: jpeg, format: .jpg, quality: 0.92)
-        return [jpeg]
+        let output = workspace.appendingPathComponent("render.\(format.rawValue)")
+        try OutputEncoder.encode(image, to: output, format: format, environment: environment, cancellation: cancellation)
+        return [output]
     }
 }
 

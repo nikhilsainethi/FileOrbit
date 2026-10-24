@@ -1,11 +1,26 @@
 import Foundation
 
 public enum FileKind: String, Sendable { case image, pdf, docx, pptx, text, svg, unsupported }
-public enum OutputFormat: String, CaseIterable, Sendable { case png, jpg, heic, tiff, pdf, txt, docx }
+public enum OutputFormat: String, CaseIterable, Sendable { case png, jpg, heic, tiff, webp, pdf, txt, docx }
 public enum CompressionPreset: String, CaseIterable, Sendable { case gentle, balanced, small }
+public enum PDFExportMode: String, CaseIterable, Sendable { case firstPage, allPages, mergedTallImage }
+
+/// Coordinates start at the top-left of the displayed crop box, after page rotation.
+public struct RedactionRegion: Equatable, Sendable {
+    public let pageIndex: Int
+    public let normalizedRect: CGRect
+    public init(pageIndex: Int, normalizedRect: CGRect) {
+        self.pageIndex = pageIndex; self.normalizedRect = normalizedRect
+    }
+}
 public enum FileOperation: Equatable, Sendable {
     case convert(OutputFormat)
     case compress(CompressionPreset)
+    case exportPDF(OutputFormat, PDFExportMode)
+    case scrubMetadata
+    case splitPDF
+    case ocrText
+    case redactPDF([RedactionRegion])
 }
 
 public struct ConversionRequest: Sendable {
@@ -51,8 +66,9 @@ public struct EngineEnvironment: Sendable {
     public let libreOfficeURL: URL?
     public let qpdfURL: URL?
     public let resvgURL: URL?
-    public init(libreOfficeURL: URL? = nil, qpdfURL: URL? = nil, resvgURL: URL? = nil) {
-        self.libreOfficeURL = libreOfficeURL; self.qpdfURL = qpdfURL; self.resvgURL = resvgURL
+    public let cwebpURL: URL?
+    public init(libreOfficeURL: URL? = nil, qpdfURL: URL? = nil, resvgURL: URL? = nil, cwebpURL: URL? = nil) {
+        self.libreOfficeURL = libreOfficeURL; self.qpdfURL = qpdfURL; self.resvgURL = resvgURL; self.cwebpURL = cwebpURL
     }
 }
 

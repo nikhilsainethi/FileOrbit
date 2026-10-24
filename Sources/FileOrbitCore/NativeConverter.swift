@@ -9,7 +9,7 @@ enum NativeConverter {
     static let maximumImagePixels = 100_000_000
     static let maximumPDFPages = 1_000
 
-    static func convert(input: URL, to format: OutputFormat, workspace: URL, cancellation: CancellationToken) throws -> [URL] {
+    static func convert(input: URL, to format: OutputFormat, workspace: URL, cancellation: CancellationToken, environment: EngineEnvironment = EngineEnvironment()) throws -> [URL] {
         try cancellation.check()
         let image = try decodedImage(input)
         let output = workspace.appendingPathComponent("image.\(format.rawValue)")
@@ -27,7 +27,7 @@ enum NativeConverter {
             context.endPDFPage()
             context.closePDF()
         } else {
-            try encode(image, to: output, format: format, quality: 0.92)
+            try OutputEncoder.encode(image, to: output, format: format, environment: environment, cancellation: cancellation)
         }
         try cancellation.check()
         return [output]
@@ -155,53 +155,12 @@ enum NativeConverter {
             }
             let text = pages.joined(separator: "\n\u{000C}\n")
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines.union(.controlCharacters)).isEmpty else {
-                throw ConversionError.unsupported("This PDF has no extractable text layer. Scanned-document OCR is not included yet.")
+                throw ConversionError.unsupported("This PDF has no extractable text layer. Use OCR to recognize text from scanned pages.")
             }
             let output = workspace.appendingPathComponent("text.txt")
             try text.write(to: output, atomically: true, encoding: .utf8)
             return [output]
         }
-        guard format == .png || format == .jpg else {
-            throw ConversionError.unsupported("PDFs can be exported as page images or existing text. Editable Office conversion is not included yet.")
-        }
-        guard document.allowsPrinting else { throw ConversionError.unsupported("This PDF does not allow page rendering.") }
-        guard let pdf = CGPDFDocument(input as CFURL) else { throw ConversionError.invalidInput("Could not read PDF page data.") }
-        var outputs: [URL] = []
-        for index in 1...pdf.numberOfPages {
-            try cancellation.check()
-            let output: URL = try autoreleasepool {
-                guard let page = pdf.page(at: index) else { throw ConversionError.failed("Could not read PDF page \(index).") }
-                let bounds = page.getBoxRect(.cropBox)
-                let rotated = abs(page.rotationAngle) % 180 == 90
-                let pageWidth = rotated ? bounds.height : bounds.width
-                let pageHeight = rotated ? bounds.width : bounds.height
-                guard pageWidth.isFinite, pageHeight.isFinite, pageWidth > 0, pageHeight > 0 else {
-                    throw ConversionError.invalidInput("PDF page \(index) has invalid dimensions.")
-                }
-                let scale = min(2.0, 8192 / max(pageWidth, pageHeight), sqrt(32_000_000 / (pageWidth * pageHeight)))
-                let width = max(1, Int((pageWidth * scale).rounded()))
-                let height = max(1, Int((pageHeight * scale).rounded()))
-                guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
-                                              bytesPerRow: width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
-                    throw ConversionError.failed("Could not allocate the image for PDF page \(index).")
-                }
-                let rect = CGRect(x: 0, y: 0, width: width, height: height)
-                context.setFillColor(CGColor(gray: 1, alpha: 1)); context.fill(rect)
-                // PDFKit's draw applies crop/rotation and includes visible annotations and form appearances.
-                // A CGPDFPage-only draw would silently omit those overlays.
-                guard let displayPage = document.page(at: index - 1) else { throw ConversionError.failed("Could not read PDF page \(index).") }
-                context.scaleBy(x: CGFloat(width) / pageWidth, y: CGFloat(height) / pageHeight)
-                displayPage.displaysAnnotations = true
-                displayPage.draw(with: .cropBox, to: context)
-                guard let image = context.makeImage() else { throw ConversionError.failed("Could not render PDF page \(index).") }
-                let file = workspace.appendingPathComponent(String(format: "page-%04d.%@", index, format.rawValue))
-                try encode(image, to: file, format: format, quality: 0.92)
-                return file
-            }
-            outputs.append(output)
-        }
-        try cancellation.check()
-        return outputs
+        return try PDFDocumentTools.export(input: input, format: format, mode: .allPages, workspace: workspace, cancellation: cancellation)
     }
 }

@@ -35,11 +35,12 @@ public enum CapabilityCatalog {
         case .image:
             guard !hasMultipleFrames(url) else { return [] }
             let sourceFormat = format(for: url.pathExtension)
-            var actions = (nativeOutputFormats.filter { $0 != sourceFormat } + [.pdf]).map(convertAction)
+            let formats = nativeOutputFormats + (environment.cwebpURL == nil ? [] : [.webp])
+            var actions = (formats.filter { $0 != sourceFormat } + [.pdf]).map(convertAction)
             if let sourceFormat, nativeOutputFormats.contains(sourceFormat) { actions.append(compressAction) }
             return actions
         case .pdf:
-            return [.png, .jpg, .txt].map(convertAction) + (environment.qpdfURL == nil ? [] : [compressAction])
+            return ([OutputFormat.png, .jpg] + (environment.cwebpURL == nil ? [] : [.webp]) + [.txt]).map(convertAction) + (environment.qpdfURL == nil ? [] : [compressAction])
         case .docx:
             return (environment.libreOfficeURL == nil ? [] : [.pdf, .txt].map(convertAction)) + [compressAction]
         case .pptx:
@@ -47,9 +48,25 @@ public enum CapabilityCatalog {
         case .text:
             return environment.libreOfficeURL == nil ? [] : [.pdf, .docx].map(convertAction)
         case .svg:
-            return environment.resvgURL == nil ? [] : [.png, .jpg].map(convertAction)
+            return environment.resvgURL == nil ? [] : ([OutputFormat.png, .jpg] + (environment.cwebpURL == nil ? [] : [.webp])).map(convertAction)
         case .unsupported:
             return []
+        }
+    }
+
+    public static func modificationActions(for url: URL, environment: EngineEnvironment) -> [FileAction] {
+        let ocr = FileAction(id: "ocr", title: "OCR", subtitle: "Recognize text locally", symbol: "text.viewfinder", operation: .ocrText)
+        let metadata = FileAction(id: "metadata", title: "Metadata", subtitle: "Remove identifying document metadata", symbol: "tag.slash", operation: .scrubMetadata)
+        switch FileKind.detect(url) {
+        case .image:
+            guard !hasMultipleFrames(url) else { return [] }
+            return (actions(for: url, environment: environment).contains { $0.id == "compress" } ? [compressAction] : []) + [metadata, ocr]
+        case .pdf:
+            return (environment.qpdfURL == nil ? [] : [compressAction, metadata]) + [
+                FileAction(id: "split", title: "Split", subtitle: "Save separate PDF pages", symbol: "square.split.2x1", operation: .splitPDF),
+                FileAction(id: "redact", title: "Redact", subtitle: "Draw regions to permanently remove", symbol: "eye.slash", operation: .redactPDF([])), ocr]
+        case .docx: return [compressAction]
+        default: return []
         }
     }
 
@@ -83,6 +100,7 @@ public enum CapabilityCatalog {
         case "jpg", "jpeg", "jpe": return .jpg
         case "heic", "heif": return .heic
         case "tiff", "tif": return .tiff
+        case "webp": return .webp
         default: return nil
         }
     }
@@ -105,6 +123,7 @@ public enum CapabilityCatalog {
         case .jpg: description = "JPEG image"; symbol = "photo.fill"
         case .heic: description = "Efficient image"; symbol = "photo.stack"
         case .tiff: description = "TIFF image"; symbol = "square.stack.3d.up"
+        case .webp: description = "WebP image"; symbol = "photo"
         case .pdf: description = "PDF document"; symbol = "doc.richtext"
         case .txt: description = "Extract text"; symbol = "text.alignleft"
         case .docx: description = "Word document"; symbol = "doc.text"
