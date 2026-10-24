@@ -1,0 +1,32 @@
+name: macOS checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: macos-26
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: swift --version
+      - name: Local engines
+        run: |
+          ./scripts/fetch-helpers.sh
+          brew install --cask libreoffice
+      - name: Tests
+        env:
+          FILEORBIT_QPDF: ${{ github.workspace }}/.build/vendor/qpdf/bin/qpdf
+          FILEORBIT_RESVG: ${{ github.workspace }}/.build/vendor/resvg/resvg
+        run: ./scripts/test.sh
+      - name: Build app archive
+        run: ./scripts/build-app.sh
+      - name: Verify packaged app
+        run: python3 scripts/verify-package.py dist/FileOrbit-macOS-arm64.zip
+      - name: Whitespace
+        run: git diff --check

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>io.fileorbit.mac</string>
+<key>CFBundleName</key><string>FileOrbit</string>
+<key>CFBundleDisplayName</key><string>FileOrbit</string>
+<key>CFBundleExecutable</key><string>FileOrbit</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>LSMinimumSystemVersion</key><string>15.0</string>
+<key>LSUIElement</key><true/>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSAppleEventsUsageDescription</key><string>FileOrbit reads the file you selected in Finder when you double-tap Command. No file contents are uploaded.</string>
+<key>CFBundleDocumentTypes</key><array><dict>
+<key>CFBundleTypeName</key><string>Convertible files</string>
+<key>CFBundleTypeRole</key><string>Viewer</string>
+<key>LSHandlerRank</key><string>Alternate</string>
+<key>LSItemContentTypes</key><array><string>public.image</string><string>com.adobe.pdf</string><string>org.openxmlformats.wordprocessingml.document</string><string>org.openxmlformats.presentationml.presentation</string><string>public.plain-text</string><string>public.svg-image</string></array>
+</dict></array>
+</dict></plist>
