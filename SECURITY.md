@@ -8,7 +8,7 @@ Please use [GitHub's private vulnerability reporting](https://github.com/nikhils
 
 ## Processing and permissions
 
-Conversions run locally. FileOrbit does not upload files, collect telemetry, or download converters in the background. LibreOffice is installed separately. The release includes checksum-pinned qpdf and resvg helpers and their license notices.
+Conversions run locally. FileOrbit does not upload files, collect telemetry, or download converters in the background. LibreOffice is installed separately. The release includes checksum-pinned qpdf and resvg helpers, a minimal cwebp encoder built from pinned sources, and their license notices. Recent conversion history is session-only unless you opt into remembering it on this Mac.
 
 The Finder shortcut requires Accessibility permission to observe modifier-key gestures and Finder Automation permission to read the selected file. Manual file selection works without these permissions. Optional shortcut diagnostics are disabled by default and do not retain typed text or file contents.
 

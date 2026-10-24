@@ -2,7 +2,7 @@
 
 **Select a file. Tap ⌘ twice. Convert it.**
 
-> This development branch contains the **0.3 optical glass preview**. The public download below remains **0.2.0-preview.1**; the new preview has not been published. Build the isolated preview with `scripts/build-preview.sh` to try the new features without replacing your installed app.
+> **0.3 optical glass preview:** a compact native wheel with contextual presets, PDF tools, a batch shelf and Studio customization. This remains a preview release; see the verification record for tested configurations and remaining limits.
 
 FileOrbit is a native macOS menu-bar app that brings a glass conversion wheel to the file you selected in Finder. Convert images, PDFs and documents, or make a smaller copy—all on your Mac, without uploading the file or opening another file picker.
 
@@ -11,9 +11,9 @@ FileOrbit is a native macOS menu-bar app that brings a glass conversion wheel to
   <img src="docs/images/optical-wheel-dark.jpg" alt="Optical glass preview with emerald compression presets in Dark mode" width="340">
 </p>
 
-Screenshots show the new 0.3 development preview. The public download below has the earlier 0.2 interface.
+Screenshots show the 0.3 optical glass interface in Light and Dark appearances.
 
-[Download the Apple Silicon preview](https://github.com/nikhilsainethi/FileOrbit/releases/download/v0.2.0-preview.1/FileOrbit-macOS-arm64.zip) · [Installation guide](docs/INSTALL.md) · [Release notes](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.2.0-preview.1)
+[Download the Apple Silicon preview](https://github.com/nikhilsainethi/FileOrbit/releases/download/v0.3.0-preview.1/FileOrbit-macOS-arm64.zip) · [Installation guide](docs/INSTALL.md) · [Release notes](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.3.0-preview.1)
 
 > **Preview release:** the download is ad hoc signed, but it is **not Developer ID signed or notarized by Apple**. macOS may block its first launch. Read the [first-launch instructions](docs/INSTALL.md#first-launch-and-macos-security) before installing. The binary is for Apple Silicon; macOS 15+ is the deployment target, and macOS 27.2 on Apple Silicon is the locally tested configuration. Older macOS versions and Intel builds still need verification.
 
@@ -24,7 +24,7 @@ Screenshots show the new 0.3 development preview. The public download below has 
 3. In Finder, select one file. Press and release the same **⌘ key twice quickly**. Allow FileOrbit to control Finder when macOS asks; this lets it read your selection.
 4. Choose a format or **Compress** from the wheel. The result is saved beside the original, with a new name.
 
-For DOCX, PPTX and TXT **conversion**, install [LibreOffice](https://www.libreoffice.org/download/) separately. Images, PDF tools, SVG rendering and DOCX image compression work without LibreOffice. The 0.3 source build can bundle qpdf, resvg and cwebp; there is no need to install them separately.
+For DOCX, PPTX and TXT **conversion**, install [LibreOffice](https://www.libreoffice.org/download/) separately. Images, PDF tools, SVG rendering and DOCX image compression work without LibreOffice. The app download bundles qpdf, resvg and cwebp; there is no need to install them separately.
 
 See the [installation guide](docs/INSTALL.md) for permissions, troubleshooting, updates and uninstalling.
 

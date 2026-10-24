@@ -93,3 +93,7 @@ Every claim of successful conversion, safe redaction, undo, or release readiness
 ## Completion evidence
 
 The six implementation tasks are complete for isolated preview review. Manual rectangular redaction follows the user's chosen interaction. Independent specification and quality reviews were completed and their confirmed defects fixed. Final candidate verification: 125 tests/16 suites and 29 extracted-package checks passed without skips. Native light/dark wheel, presets, redaction/Quick Look, batch shelf, Studio appearance/accessibility reordering and first-page WebP conversion were observed. See `docs/TESTING.md` for remaining physical-input, drag, platform and signing checks. Installation/publication remain gated on the user's preview approval; keep this branch/worktree intact.
+
+## Approved installation follow-through
+
+The user approved installation/publication after preview review. The production 0.3.0 candidate passed 125 source tests and 29 package checks, was installed with matching executable hashes, and passed the user-operated physical Finder shortcut, drag conversion, modifier switching/center drop and Studio pointer-reorder checks. Installation instructions now explicitly include a restart after granting or refreshing Accessibility permission. See TESTING.md for exact evidence and remaining platform limits.

@@ -1,6 +1,6 @@
-# FileOrbit optical glass preview (0.3 development)
+# FileOrbit isolated optical glass preview
 
-This is a separate native preview, not the public 0.2 release. It uses `io.fileorbit.preview`, separate preferences, and no global keyboard or Finder-drag listener. It does not replace `/Applications/FileOrbit.app`. All conversions are real and local; use sample copies while evaluating the design.
+This is a separate native review app built from the same source as FileOrbit. It uses `io.fileorbit.preview`, separate preferences, and no global keyboard or Finder-drag listener. It does not replace `/Applications/FileOrbit.app`. All conversions are real and local; use sample copies while evaluating the design.
 
 ## Open and try it
 
@@ -29,7 +29,7 @@ The preview bundles qpdf, resvg and a minimal cwebp 1.6.0 encoder built from pin
 
 The base wheel is 276 pt across (about 296 pt with active displacement). The optional outer presets extend to 384 pt before displacement. A larger transparent canvas reserves space for their shadows. Native macOS materials determine backdrop blur; no private blur APIs are used. Light/Dark follow macOS; Reduce Motion and Reduce Transparency are respected.
 
-Target: macOS 15+; local validation: Apple Silicon on macOS 27.2. Intel, older macOS releases and physical Finder modifier delivery for this new build require separate verification before a public release. The isolated preview deliberately cannot test its own global double-Command listener; it leaves the installed app’s listener alone. AirDrop opens the native recipient chooser; no recipient or transfer is selected automatically.
+Target: macOS 15+; local validation: Apple Silicon on macOS 27.2. Intel and older macOS releases require separate verification. Physical Finder gestures were validated on the installed 0.3.0 candidate; see TESTING.md. The isolated preview deliberately cannot test its own global double-Command listener; it leaves the installed app’s listener alone. For installed-build observations, see TESTING.md. AirDrop opens the native recipient chooser; no recipient or transfer is selected automatically.
 
 ## Developer previews
 

@@ -1,5 +1,20 @@
 # Verification record — October 24, 2026
 
+## 0.3.0-preview.1 installed release validation — October 24, 2026
+
+The user approved the optical preview for installation and publication. The production bundle was built separately, extracted-package verified, and installed at `/Applications/FileOrbit.app`. Its GUI executable matched the tested package: SHA-256 `77b8cfbae19e7370b53e215a91786066ee48f42f39f69437370b4a377fc6fb65`. The release ZIP SHA-256 is `32194f5ad4fe9feb58cf3c2a29b69f6f266bc626e3516ed3c546e9f07ba4a147`. Strict recursive code-signature validation passed after installation. The previous installation was retained for rollback.
+
+- **125 source tests in 16 suites passed**, zero failures, 6.056 seconds after build, with real qpdf, resvg, cwebp and LibreOffice available.
+- **29 production-package checks passed with zero skips**, 53.837 seconds. Their content and safety coverage is listed in the earlier optical-preview record below. The CI configuration now explicitly supplies the bundled cwebp path to source tests.
+- **Physical Finder double-Command passed.** The user operated the actual Mac keyboard. Logs recorded recognized gestures reaching the Finder selection handler at 16:34:12.282, 16:34:20.383 and 16:34:25.817 local Pacific time. Native inspection confirmed that the wheel showed the selected PDF directly. After refreshing the ad-hoc signature's permission entry, the first attempt delivered no modifier events; restarting with permission already active restored delivery. No recognizer/backend change was made.
+- **Physical Finder drag-to-convert passed.** The user dragged `Design study.png`, pressed Shift, and dropped on JPG. The resulting JPEG decoded at 4,096 × 4,096. SHA-256 verification showed the PNG source was unchanged.
+- **Physical modifier switching and center drop passed.** The user confirmed Option → Modify, Control → Quick Actions, and a center drop. Native inspection then showed `Presentation study.pdf` (19 KB) retained in Glass Shelf.
+- **Studio pointer-drag reordering passed.** The user dragged JPG onto PNG. Native accessibility inspection confirmed JPG moved from position 2 to position 1. Reset order restored PNG to position 1 and JPG to position 2. System appearance remained selected.
+
+This validation combines automated checks, observed native UI state, and explicitly identified physical actions performed by the user. It does not imply all hardware/OS combinations were exercised. AirDrop recipient flow, Terminal routing, launch-at-login, multiple monitors/Spaces, full Xcode canvas macros, Intel hardware and older macOS remain outside this local run. The app remains ad-hoc signed and unnotarized; distribute it as a preview.
+
+The following records describe earlier isolated and released builds; their verification limits are historical for those builds.
+
 ## 0.3 optical glass development preview — October 24, 2026
 
 This record applies to the isolated `io.fileorbit.preview` candidate (version 0.3.0, build 3), not the public release. The production installation and public GitHub release were left unchanged. The same Apple Silicon/macOS 27.2 environment described below was used.

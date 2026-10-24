@@ -23,6 +23,7 @@ jobs:
         env:
           FILEORBIT_QPDF: ${{ github.workspace }}/.build/vendor/qpdf/bin/qpdf
           FILEORBIT_RESVG: ${{ github.workspace }}/.build/vendor/resvg/resvg
+          FILEORBIT_CWEBP: ${{ github.workspace }}/.build/vendor/cwebp/cwebp
         run: ./scripts/test.sh
       - name: Build app archive
         run: ./scripts/build-app.sh

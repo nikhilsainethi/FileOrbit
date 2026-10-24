@@ -15,7 +15,7 @@ Older macOS versions and Intel builds have not yet been verified. This is an ear
 
 ## Download and install
 
-1. Open the [v0.2.0-preview.1 release](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.2.0-preview.1).
+1. Open the [v0.3.0-preview.1 release](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.3.0-preview.1).
 2. Under **Assets**, download **FileOrbit-macOS-arm64.zip**. The automatically generated “Source code” archives contain the project, not the app.
 3. Double-click the ZIP to extract it.
 4. Drag **FileOrbit.app** into your **Applications** folder. Grant permissions to this installed copy, rather than to a copy in Downloads or a synced folder.
@@ -42,7 +42,7 @@ Do not disable Gatekeeper globally or remove quarantine attributes to install Fi
 1. Open **FileOrbit → Settings** from the menu-bar icon.
 2. Click **Enable in Accessibility**.
 3. In System Settings, enable **FileOrbit** under **Privacy & Security → Accessibility**. On the tested macOS 27 build, the pane is named **Device Control and Data Access**. Authenticate with macOS if requested.
-4. Return to FileOrbit. Click **Refresh** if the permission status has not changed, then quit and reopen FileOrbit once if needed.
+4. After granting or refreshing permission, quit and reopen FileOrbit once. This starts its keyboard listeners with authorization already active. Return to Settings and use **Refresh** if the status has not changed.
 5. Click one file in **Finder** so Finder is the active app. Press and release the same **⌘ key twice quickly**. Do not hold another key or click between the taps.
 6. On the first invocation, macOS asks whether FileOrbit may control **Finder**. Choose **Allow** to let the app read the selected file.
 
@@ -52,7 +52,7 @@ Accessibility permission lets the app observe the shortcut. Finder Automation le
 
 ## Enable Office conversions
 
-FileOrbit’s app download includes **qpdf** for PDF compression and **resvg** for SVG rendering. Image and basic PDF operations use macOS. **LibreOffice is optional and is not bundled.**
+FileOrbit’s app download includes **qpdf** for PDF tools, **resvg** for SVG rendering and **cwebp** for WebP encoding. Image and basic PDF operations use macOS. **LibreOffice is optional and is not bundled.**
 
 For DOCX → PDF/TXT, PPTX → PDF/images, and TXT → PDF/DOCX:
 
@@ -67,11 +67,15 @@ DOCX embedded-image compression does not require LibreOffice. Missing converters
 
 Select one supported file in Finder, double-tap **⌘**, then choose an action. Arrow keys select actions and **Return** runs the selection. **Escape** or clicking outside closes the idle wheel. Normal Command shortcuts cancel the double-tap gesture.
 
-Results are saved beside the source as `name-converted.ext` or `name-compressed.ext`. Existing files are never overwritten. Name collisions receive a unique name; multipage exports use a new folder. Compression only saves a result when it is smaller. Use **Show in Finder** on the result screen to reveal the output.
+Results are saved beside the source as `name-converted.ext` or `name-compressed.ext`. Existing files are never overwritten. Name collisions receive a unique name; multipage exports use a new folder. Compression only saves a result when it is smaller. Use **Reveal in Finder** on the floating completion pill to reveal the output. Hover over the pill for Quick Look, Copy and verified Undo.
 
 The source folder must be writable. Select a downloaded local file; files that exist only in cloud storage may need to download first. FileOrbit performs conversions locally, but a result saved in a cloud-synced folder follows that folder’s normal sync behavior.
 
-**Settings → Appearance** offers System, Light and Dark. Dark uses the graphite-and-smoky-lavender palette; the choice changes FileOrbit only and persists after relaunch.
+**Settings → Appearance** offers System, Light and Dark. Dark uses smoked graphite with emerald highlights; the choice changes FileOrbit only and persists after relaunch.
+
+Hover over Compress or a multipage PDF image action for outer presets. The legend switches Convert, Modify and Quick Actions. While dragging a file in Finder, Shift, Option and Control select those respective modes; drop onto a wedge to run it or the hub to collect files in Glass Shelf. Studio is available from the menu-bar icon for action order, appearance preview and local history.
+
+For PDF redaction, choose Modify → Redact, draw regions on each page, then export a separate copy. Redaction flattens all pages and removes searchable text and interactive objects. Inspect the result before sharing.
 
 Launch at login is available in Settings and is off by default. There is no automatic updater in this preview.
 
@@ -99,9 +103,9 @@ If FileOrbit reports that Finder access is denied, open **Privacy & Security →
 
 ### A format or compression action is missing
 
-Check **Settings → Local converters**. LibreOffice is required for Office/text conversion; qpdf enables PDF compression; resvg enables SVG rendering. The downloaded preview includes qpdf and resvg, while a source build needs them bundled or installed separately.
+Check **Settings → Local converters**. LibreOffice is required for Office/text conversion; qpdf enables PDF compression and metadata removal; resvg enables SVG rendering; cwebp enables WebP output. The downloaded preview includes qpdf, resvg and cwebp, while a source build needs them bundled or installed separately.
 
-The wheel also filters unsupported operations: same-format conversion, animated or multipage images, and unrecognized file types are not offered. PDF-to-editable-Office and OCR are not part of this release.
+The wheel also filters unsupported operations: same-format conversion, animated or multipage images, and unrecognized file types are not offered. PDF-to-editable-Office is not included. OCR is available under Modify for supported images and PDFs.
 
 ### Compression did not produce a file
 
