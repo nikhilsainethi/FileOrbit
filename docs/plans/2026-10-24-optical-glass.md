@@ -89,3 +89,7 @@ Files: `AppMain.swift`, new drag monitor/window coordinator as needed, existing 
 `FILEORBIT_BUILD_DIR=/tmp/fileorbit-optical-release FILEORBIT_VENDOR_DIR=<workspace>/work/tools ./scripts/build-preview.sh <new-system-temporary-output-directory>`
 
 Every claim of successful conversion, safe redaction, undo, or release readiness requires observed test evidence. Preview-only compilation and supported-platform limits must remain explicit.
+
+## Completion evidence
+
+The six implementation tasks are complete for isolated preview review. Manual rectangular redaction follows the user's chosen interaction. Independent specification and quality reviews were completed and their confirmed defects fixed. Final candidate verification: 125 tests/16 suites and 29 extracted-package checks passed without skips. Native light/dark wheel, presets, redaction/Quick Look, batch shelf, Studio appearance/accessibility reordering and first-page WebP conversion were observed. See `docs/TESTING.md` for remaining physical-input, drag, platform and signing checks. Installation/publication remain gated on the user's preview approval; keep this branch/worktree intact.

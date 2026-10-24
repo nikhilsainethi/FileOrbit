@@ -31,11 +31,13 @@ if [[ -x "$VENDOR/qpdf/bin/qpdf" && -x "$VENDOR/resvg/resvg" ]]; then
 else
     echo "Bundled helpers absent; app will use installed qpdf/resvg if available." >&2
 fi
+if [[ -x "$VENDOR/cwebp/cwebp" ]]; then cp -X "$VENDOR/cwebp/cwebp" "$APP/Contents/Helpers/cwebp"; fi
 if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then cp -X "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/"; fi
 if [[ -d "$APP/Contents/Helpers/qpdf" ]]; then
     find "$APP/Contents/Helpers/qpdf" -type f \( -name '*.dylib' -o -perm -111 \) -exec codesign --force --sign - {} \;
 fi
 if [[ -f "$APP/Contents/Helpers/resvg" ]]; then codesign --force --sign - "$APP/Contents/Helpers/resvg"; fi
+if [[ -f "$APP/Contents/Helpers/cwebp" ]]; then codesign --force --sign - "$APP/Contents/Helpers/cwebp"; fi
 codesign --force --sign - "$APP/Contents/MacOS/fileorbit-cli"
 codesign --force --sign - --entitlements "$ROOT/Resources/Entitlements.plist" "$APP"
 codesign --verify --deep --strict "$APP"

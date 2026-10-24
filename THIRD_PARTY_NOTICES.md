@@ -8,6 +8,8 @@ FileOrbit's application source is licensed under [MIT](LICENSE). Third-party com
 
 | Component | Version | License and notices | Upstream source |
 | --- | --- | --- | --- |
+| cwebp / libwebp / SharpYUV | 1.6.0 / 0.4.2 | [BSD license](Resources/Licenses/webp/libwebp/COPYING), [patent grant](Resources/Licenses/webp/libwebp/PATENTS), [authors](Resources/Licenses/webp/libwebp/AUTHORS) | [libwebp](https://chromium.googlesource.com/webm/libwebp/+/refs/tags/v1.6.0) |
+| libpng, statically linked into cwebp | 1.6.59 | [PNG license](Resources/Licenses/webp/libpng/LICENSE) | [libpng](https://libpng.sourceforge.io/) |
 | qpdf, libqpdf and qpdf utility executables | 12.4.2 | [Apache-2.0](Resources/Licenses/qpdf/LICENSE.txt), [NOTICE](Resources/Licenses/qpdf/NOTICE.md) | [qpdf](https://github.com/qpdf/qpdf/tree/v12.4.2) |
 | OpenSSL, statically linked into qpdf | 3.6.4 | [Apache-2.0](Resources/Licenses/openssl/LICENSE.txt), [authors](Resources/Licenses/openssl/AUTHORS.md) | [OpenSSL](https://github.com/openssl/openssl/tree/openssl-3.6.4) |
 | libjpeg-turbo, statically linked into qpdf | 3.2.0 | [License roll-up](Resources/Licenses/libjpeg-turbo/LICENSE.md), [IJG README](Resources/Licenses/libjpeg-turbo/README.ijg) | [libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo/tree/3.2.0) |
@@ -26,3 +28,5 @@ The official qpdf macOS build statically links OpenSSL and JPEG. Versions above 
 - **Apple frameworks and system libraries**, including AppKit, SwiftUI, ImageIO, CoreGraphics, PDFKit, Foundation, libc++, zlib and libiconv, are supplied by macOS. FileOrbit does not copy these libraries into its app.
 
 `fetch-helpers.sh` pins upstream download URLs and SHA-256 hashes. Compiled helpers are excluded from the Git source tree and included only in packaged app downloads. The packaging script must retain this notice file and the complete license directory. Refresh this inventory before changing helper versions, build features or architecture; the bundled-dependency inspection described here covers the published arm64 preview.
+
+The optical preview builds a minimal cwebp from checksum-pinned upstream sources using `scripts/build-webp-helper.sh`. Only PNG support is enabled among optional image libraries; JPEG, TIFF, GIF and SDL are disabled. Its runtime dependencies are Apple system libc and zlib. It receives PNG data already decoded and staged by FileOrbit. See [WebP build provenance](Resources/Licenses/webp/README.txt). The previous public 0.2.0 preview did not bundle cwebp.

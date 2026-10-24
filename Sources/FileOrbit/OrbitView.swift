@@ -2,410 +2,333 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 import FileOrbitCore
-
-private let orbitAccent = Color(red: 0.08, green: 0.57, blue: 0.53)
-
-/// Soft graphite glass and a restrained smoky-lavender highlight, informed by
-/// the neutral/plum family in https://coolors.co/palettes/trending/dark.
-/// Strong surface tint keeps pale desktop backgrounds from washing controls gray.
-private enum OrbitNight {
-    static let surface = Color(red: 28 / 255, green: 28 / 255, blue: 34 / 255)
-    static let selected = Color(red: 73 / 255, green: 68 / 255, blue: 81 / 255)
-    static let accent = Color(red: 216 / 255, green: 206 / 255, blue: 231 / 255)
-    static let text = Color(red: 240 / 255, green: 237 / 255, blue: 244 / 255)
-    static let secondary = Color(red: 185 / 255, green: 179 / 255, blue: 194 / 255)
-    static let buttonInk = Color(red: 34 / 255, green: 31 / 255, blue: 41 / 255)
-}
+import PDFKit
 
 struct OrbitView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject private var preferences = StudioPreferences.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var dropTarget = false
-    @State private var selectedAction = 0
-    @FocusState private var wheelFocused: Bool
-
-    private var actions: [FileAction] {
-        // A stable bottom position makes compression easy to find across file types.
-        model.actions.filter { !isCompression($0) } + model.actions.filter(isCompression)
-    }
-    private var activeAction: FileAction? { actions.indices.contains(selectedAction) ? actions[selectedAction] : actions.first }
-    private var hasCompression: Bool { actions.last.map(isCompression) ?? false }
-    private var wheelAnimation: Animation? { reduceMotion ? nil : .easeOut(duration: 0.16) }
-    private var accent: Color { colorScheme == .dark ? OrbitNight.accent : orbitAccent }
-    private var primaryText: Color { colorScheme == .dark ? OrbitNight.text : .primary }
-    private var secondaryText: Color { colorScheme == .dark ? OrbitNight.secondary : .secondary }
-    private var buttonInk: Color { colorScheme == .dark ? OrbitNight.buttonInk : .white }
+    @Environment(\.colorScheme) private var scheme
+    @State private var showsDependency = false
+    @StateObject private var dropSession = OrbitDropSession()
+    @FocusState private var focused: Bool
+    private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.72) }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            stageContent
-            if model.stage != .working {
-                Button { model.onDismiss?() } label: {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .semibold))
-                        .frame(width: 28, height: 28).modifier(OrbitGlass(shape: Circle()))
-                }
-                .buttonStyle(.plain).help("Close · Esc").accessibilityLabel("Close FileOrbit")
-                .position(x: OrbitLayout.closeFrame.midX, y: OrbitLayout.closeFrame.midY)
+            if model.input != nil {
+                radialContent
+                    .scaleEffect(model.stage == .working ? 0.12 : 1, anchor: UnitPoint(x: OrbitLayout.center.x / OrbitLayout.canvasSize.width, y: OrbitLayout.center.y / OrbitLayout.canvasSize.height))
+                    .opacity(model.stage == .working ? 0 : 1)
+                    .animation(spring, value: model.stage)
+            } else { welcome }
+            if let hint = model.dependencyHint {
+                Button { showsDependency.toggle() } label: {
+                    Image(systemName: "info").font(.system(size: 11, weight: .semibold)).frame(width: 28, height: 28)
+                        .modifier(LiquidGlassStyle(shape: Circle()))
+                }.buttonStyle(.plain).help(hint).accessibilityLabel("Available converters")
+                    .position(x: OrbitLayout.closeFrame.midX - 36, y: OrbitLayout.closeFrame.midY)
+                    .popover(isPresented: $showsDependency) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(hint).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
+                            Button("Converter settings") { showsDependency = false; model.onSettings?() }
+                        }.padding(16).frame(width: 260)
+                    }
             }
+            Button { model.onDismiss?() } label: {
+                Image(systemName: "xmark").font(.system(size: 10, weight: .semibold)).frame(width: 28, height: 28)
+                    .modifier(LiquidGlassStyle(shape: Circle()))
+            }
+            .buttonStyle(.plain).help("Close · Escape").accessibilityLabel("Close FileOrbit")
+            .position(x: OrbitLayout.closeFrame.midX, y: OrbitLayout.closeFrame.midY)
+            .opacity(model.stage == .working ? 0 : 1)
         }
         .frame(width: OrbitLayout.canvasSize.width, height: OrbitLayout.canvasSize.height)
-        .foregroundStyle(primaryText)
-        .onDrop(of: [UTType.fileURL.identifier], isTargeted: $dropTarget) { providers in
-            guard model.stage != .working, providers.count == 1, let provider = providers.first else { return false }
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                if let url { DispatchQueue.main.async { model.select(url) } }
+        .foregroundStyle(OrbitPalette.primaryText(for: scheme))
+        .contentShape(Rectangle())
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let point): model.hover(CGPoint(x: point.x - OrbitLayout.wheelFrame.minX, y: point.y - OrbitLayout.wheelFrame.minY))
+            case .ended: model.hover(nil)
             }
-            return true
+        }
+        .onDrop(of: [UTType.fileURL.identifier], delegate: OrbitFileDropDelegate(model: model, session: dropSession))
+        .focusable().focusEffectDisabled().focused($focused)
+        .onAppear { focused = true }
+        .onChange(of: model.input) { focused = true }
+        .onKeyPress(.leftArrow) { model.keyboardMove(-1); return .handled }
+        .onKeyPress(.upArrow) { model.keyboardMove(-1); return .handled }
+        .onKeyPress(.rightArrow) { model.keyboardMove(1); return .handled }
+        .onKeyPress(.downArrow) { model.keyboardMove(1); return .handled }
+        .onKeyPress(.return) { model.keyboardActivate(); return .handled }
+        .onExitCommand {
+            if model.parameterParentID != nil { model.parameterParentID = nil; model.selectedParameterID = nil }
+            else { model.onDismiss?() }
         }
         .alert("FileOrbit", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK") { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
-        .onExitCommand {
-            if model.stage == .compression { model.back() }
-            else if model.stage != .working { model.onDismiss?() }
-        }
-        .onChange(of: model.input) { _, _ in selectedAction = 0; wheelFocused = true }
-        .onChange(of: model.actions) { _, _ in selectedAction = min(selectedAction, max(0, actions.count - 1)) }
-        .onChange(of: model.stage) { _, stage in if stage == .ready || stage == .compression { wheelFocused = true } }
     }
 
-    @ViewBuilder private var stageContent: some View {
-        switch model.stage {
-        case .ready:
-            if let input = model.input, !actions.isEmpty { readyWheel(input: input) }
-            else { introduction }
-        case .compression: compressionWheel
-        case .working: working
-        case .result: completion
-        }
-    }
-
-    private func readyWheel(input: URL) -> some View {
+    private var radialContent: some View {
         ZStack(alignment: .topLeading) {
-            glassGroup {
-                ZStack {
-                    ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
-                        OrbitSegment(title: action.title, symbol: action.symbol,
-                                     angle: OrbitLayout.angle(index: index, count: actions.count, compressionLast: hasCompression),
-                                     span: OrbitLayout.span(count: actions.count), active: index == selectedAction) {
-                            selectedAction = index; model.perform(action)
-                        }
-                        .help(action.subtitle)
-                        .accessibilityLabel(action.title + ". " + action.subtitle)
-                        .accessibilityAddTraits(index == selectedAction ? .isSelected : [])
-                    }
-                    fileHub(input: input)
+            ZStack {
+                ForEach(Array(model.orbitActions.enumerated()), id: \.element.id) { index, action in
+                    let angle = OrbitLayout.angle(index: index, count: model.orbitActions.count, compressionLast: model.compressionLast)
+                    OrbitActionSector(action: action, angle: angle, span: OrbitLayout.span(count: model.orbitActions.count), active: model.selectedActionID == action.id) { model.activate(action) }
                 }
-                .frame(width: 410, height: 410)
-                .onContinuousHover { phase in
-                    if case .active(let point) = phase,
-                       let index = OrbitLayout.actionIndex(at: point, count: actions.count, compressionLast: hasCompression) {
-                        selectedAction = index
+                if let layout = model.parameterLayout {
+                    ForEach(Array(model.parameters.enumerated()), id: \.element.id) { index, parameter in
+                        OrbitParameterSector(parameter: parameter, shape: layout.shape(index), angle: layout.angle(index), active: model.selectedParameterID == parameter.id) { model.run(parameter.operation) }
                     }
+                    .transition(.opacity.combined(with: .scale(scale: 0.94)))
                 }
             }
+            .id(model.mode)
+            .transition(.modifier(active: OrbitModeTransition(angle: -10, opacity: 0), identity: OrbitModeTransition(angle: 0, opacity: 1)))
+            .frame(width: OrbitLayout.wheelFrame.width, height: OrbitLayout.wheelFrame.height)
             .position(x: OrbitLayout.wheelFrame.midX, y: OrbitLayout.wheelFrame.midY)
-            .focusable().focusEffectDisabled().focused($wheelFocused)
-            .onAppear { wheelFocused = true }
-            .onKeyPress(.rightArrow) { moveSelection(1); return .handled }
-            .onKeyPress(.leftArrow) { moveSelection(-1); return .handled }
-            .onKeyPress(.downArrow) { moveSelection(1); return .handled }
-            .onKeyPress(.upArrow) { moveSelection(-1); return .handled }
-            .onKeyPress(.return) { if let activeAction { model.perform(activeAction) }; return .handled }
-
-            if let activeAction {
-                HStack(spacing: 9) {
-                    Text(isCompression(activeAction) ? "Make this file smaller" : "Convert to \(activeAction.title)")
-                        .font(.system(size: 12, weight: .medium))
-                    Image(systemName: "return").font(.system(size: 10, weight: .medium)).foregroundStyle(secondaryText)
-                }
-                .frame(width: OrbitLayout.captionFrame.width, height: OrbitLayout.captionFrame.height)
-                .modifier(OrbitGlass(shape: Capsule()))
-                .position(x: OrbitLayout.captionFrame.midX, y: OrbitLayout.captionFrame.midY)
-                .accessibilityHidden(true)
+            .animation(spring, value: model.mode)
+            .animation(spring, value: model.selectedActionID)
+            .animation(spring, value: model.selectedParameterID)
+            .animation(spring, value: model.parameterParentID)
+            OrbitHub(model: model, inspector: model.inspector)
+                .frame(width: 104, height: 104)
+                .position(x: OrbitLayout.center.x, y: OrbitLayout.center.y)
+            if model.orbitActions.isEmpty {
+                VStack(spacing: 7) {
+                    Text(model.dependencyHint ?? "No \(model.mode.title.lowercased()) tools for this file. Try another mode.")
+                        .font(.system(size: 10)).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                    Button("Settings") { model.onSettings?() }.buttonStyle(.plain).font(.system(size: 10, weight: .semibold))
+                }.padding(12).frame(width: 240)
+                    .modifier(LiquidGlassStyle(shape: RoundedRectangle(cornerRadius: 16)))
+                    .position(x: OrbitLayout.center.x, y: OrbitLayout.center.y + 110)
             }
+            modeLegend
         }
-        .animation(wheelAnimation, value: selectedAction)
+        .frame(width: OrbitLayout.canvasSize.width, height: OrbitLayout.canvasSize.height)
     }
-
-    private func fileHub(input: URL) -> some View {
-        VStack(spacing: 7) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: input.path)).resizable().interpolation(.high)
-                .frame(width: 42, height: 42).accessibilityHidden(true)
-            Text(input.lastPathComponent).font(.system(size: 12, weight: .semibold))
-                .lineLimit(2).truncationMode(.middle).multilineTextAlignment(.center).frame(width: 134)
-            Text(model.inputSize).font(.system(size: 10.5, weight: .medium)).foregroundStyle(secondaryText)
-            if model.dependencyHint != nil {
-                Button { model.onSettings?() } label: { Image(systemName: "info.circle").font(.system(size: 11)) }
-                    .buttonStyle(.plain).foregroundStyle(secondaryText)
-                    .help(model.dependencyHint ?? "Settings").accessibilityLabel(model.dependencyHint ?? "Settings")
-            }
-        }
-        .frame(width: 166, height: 166)
-        .modifier(OrbitGlass(shape: Circle()))
-        .overlay { if dropTarget { Circle().strokeBorder(accent, lineWidth: 2) } }
-        .help(input.lastPathComponent)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Selected file, \(input.lastPathComponent), \(model.inputSize)")
-    }
-
-    private var compressionWheel: some View {
-        ZStack(alignment: .topLeading) {
-            glassGroup {
-                ZStack {
-                    ForEach(Array(CompressionPreset.allCases.enumerated()), id: \.element) { index, preset in
-                        OrbitSegment(title: preset.rawValue.capitalized, symbol: presetSymbol(preset),
-                                     angle: OrbitLayout.angle(index: index, count: 3, compressionLast: false),
-                                     span: OrbitLayout.span(count: 3), active: model.preset == preset) {
-                            model.preset = preset
-                        }
-                        .help(presetDescription(preset))
-                        .accessibilityLabel(preset.rawValue.capitalized + ". " + presetDescription(preset))
-                        .accessibilityAddTraits(model.preset == preset ? .isSelected : [])
+    private var modeLegend: some View {
+        let frame = model.parameters.isEmpty ? OrbitLayout.captionFrame : OrbitLayout.expandedCaptionFrame
+        return HStack(spacing: 0) {
+            ForEach(OrbitMode.allCases) { mode in
+                Button { model.setMode(mode) } label: {
+                    HStack(spacing: 4) {
+                        Text(mode.key).font(.system(size: 12, weight: .medium))
+                        Text(mode.title).font(.system(size: 9, weight: model.mode == mode ? .bold : .medium))
                     }
-                    VStack(spacing: 9) {
-                        Button { model.back() } label: {
-                            Label("Back", systemImage: "arrow.left").font(.system(size: 10.5, weight: .medium))
-                        }.buttonStyle(.plain).foregroundStyle(secondaryText).help("All actions · Esc")
-                        Text(model.preset.rawValue.capitalized).font(.system(size: 13, weight: .semibold))
-                        Button { model.run(.compress(model.preset)) } label: {
-                            Text("Compress").font(.system(size: 12, weight: .semibold))
-                                .padding(.horizontal, 18).padding(.vertical, 9)
-                                .foregroundStyle(buttonInk).background(accent, in: Capsule())
-                        }.buttonStyle(.plain).accessibilityLabel("Compress file with \(model.preset.rawValue) preset")
-                    }
-                    .frame(width: 166, height: 166).modifier(OrbitGlass(shape: Circle()))
-                }.frame(width: 410, height: 410)
-            }
-            .position(x: OrbitLayout.wheelFrame.midX, y: OrbitLayout.wheelFrame.midY)
-            .focusable().focusEffectDisabled().focused($wheelFocused)
-            .onAppear { wheelFocused = true }
-            .onKeyPress(.rightArrow) { movePreset(1); return .handled }
-            .onKeyPress(.leftArrow) { movePreset(-1); return .handled }
-            .onKeyPress(.downArrow) { movePreset(1); return .handled }
-            .onKeyPress(.upArrow) { movePreset(-1); return .handled }
-            .onKeyPress(.return) { model.run(.compress(model.preset)); return .handled }
-
-            Text(presetCaption(model.preset)).font(.system(size: 11, weight: .medium))
-                .frame(width: OrbitLayout.captionFrame.width, height: OrbitLayout.captionFrame.height)
-                .modifier(OrbitGlass(shape: Capsule()))
-                .position(x: OrbitLayout.captionFrame.midX, y: OrbitLayout.captionFrame.midY)
-                .help(presetDescription(model.preset) + " A separate copy is saved only if it is smaller. Your original stays intact.")
-        }
-        .animation(wheelAnimation, value: model.preset)
-    }
-
-    private var working: some View {
-        VStack(spacing: 17) {
-            ProgressView().tint(accent).controlSize(.large).frame(height: 35)
-            VStack(spacing: 6) {
-                Text(model.cancelling ? "Cancelling…" : "Working on your Mac")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                Text(model.input?.lastPathComponent ?? "")
-                    .font(.system(size: 11)).foregroundStyle(secondaryText).lineLimit(2)
-                    .truncationMode(.middle).multilineTextAlignment(.center).frame(width: 210)
-            }
-            Text("Your original stays intact.").font(.system(size: 10.5)).foregroundStyle(secondaryText)
-            Button(model.cancelling ? "Cancelling…" : "Cancel") { model.cancel() }
-                .buttonStyle(.bordered).controlSize(.small).disabled(model.cancelling)
-        }
-        .frame(width: OrbitLayout.workingFrame.width, height: OrbitLayout.workingFrame.height)
-        .modifier(OrbitGlass(shape: Circle()))
-        .position(x: OrbitLayout.workingFrame.midX, y: OrbitLayout.workingFrame.midY)
-    }
-
-    private var completion: some View {
-        VStack(spacing: 17) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 34, weight: .light))
-                .foregroundStyle(accent).accessibilityHidden(true)
-            Text("Your file is ready").font(.system(size: 22, weight: .semibold, design: .rounded))
-            if let result = model.result {
-                Text(result.outputURLs.count == 1 ? (result.outputURLs.first?.lastPathComponent ?? "File saved") : "\(result.outputURLs.count) files saved")
-                    .font(.system(size: 12, weight: .medium)).lineLimit(2).truncationMode(.middle)
-                    .multilineTextAlignment(.center).frame(maxWidth: 294)
-                    .help(result.outputURLs.map(\.lastPathComponent).joined(separator: "\n"))
-                HStack(spacing: 18) {
-                    sizeColumn(title: "ORIGINAL", value: AppModel.bytes(result.inputBytes))
-                    Image(systemName: "arrow.right").font(.system(size: 11)).foregroundStyle(secondaryText)
-                    sizeColumn(title: "SAVED", value: AppModel.bytes(result.outputBytes))
+                    .foregroundStyle(model.mode == mode ? OrbitPalette.activeText(for: scheme) : OrbitPalette.secondaryText(for: scheme))
+                    .frame(maxWidth: .infinity).frame(height: 26)
+                    .background { if model.mode == mode { Capsule().fill(OrbitPalette.accent(for: scheme).opacity(0.13)).padding(3) } }
                 }
-                if let note = result.note {
-                    ScrollView { Text(note).font(.system(size: 11)).foregroundStyle(secondaryText)
-                        .multilineTextAlignment(.center).frame(maxWidth: .infinity) }
-                        .frame(maxHeight: 54)
-                }
-                Button { model.reveal() } label: {
-                    Label("Show in Finder", systemImage: "folder").font(.system(size: 12, weight: .semibold))
-                        .padding(.horizontal, 20).padding(.vertical, 10)
-                        .foregroundStyle(buttonInk).background(accent, in: Capsule())
-                }.buttonStyle(.plain)
-                Button("Back to original file") { model.back() }.buttonStyle(.plain)
-                    .font(.system(size: 11)).foregroundStyle(secondaryText)
+                .buttonStyle(.plain).accessibilityLabel(mode.title + " mode")
             }
         }
-        .padding(27)
-        .frame(width: OrbitLayout.cardFrame.width, height: OrbitLayout.cardFrame.height)
-        .modifier(OrbitGlass(shape: RoundedRectangle(cornerRadius: 32)))
-        .position(x: OrbitLayout.cardFrame.midX, y: OrbitLayout.cardFrame.midY)
+        .frame(width: frame.width, height: 26)
+        .modifier(LiquidGlassStyle(shape: Capsule()))
+        .position(x: frame.midX, y: frame.midY)
+        .animation(spring, value: model.parameterParentID)
     }
-
-    private var introduction: some View {
-        VStack(spacing: 20) {
-            Image(systemName: model.input == nil ? "circle.hexagongrid" : "doc.questionmark")
-                .font(.system(size: 42, weight: .ultraLight)).foregroundStyle(accent)
-                .accessibilityHidden(true)
-            VStack(spacing: 10) {
-                Text(model.input == nil ? "A little space for your files" : "No available actions")
-                    .font(.system(size: 21, weight: .semibold, design: .rounded))
-                    .multilineTextAlignment(.center)
-                if let input = model.input {
-                    Text(input.lastPathComponent).font(.system(size: 12, weight: .medium))
-                        .lineLimit(2).truncationMode(.middle).help(input.lastPathComponent)
-                }
-                Text(model.dependencyHint ?? (FileOrbitRuntime.isPreview
-                     ? "Choose a sample file to explore the glass wheel. Everything runs locally."
-                     : "Select a file in Finder, then tap ⌘ twice.\nConvert or compress, right where you are."))
-                    .font(.system(size: 12)).foregroundStyle(secondaryText)
-                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true).lineSpacing(3)
-            }
-            Button { model.chooseFile() } label: {
-                Label("Choose a file", systemImage: "plus").font(.system(size: 12, weight: .semibold))
-                    .padding(.horizontal, 20).padding(.vertical, 10)
-                    .foregroundStyle(buttonInk).background(accent, in: Capsule())
-            }.buttonStyle(.plain)
-            Button(model.input == nil ? "Settings" : "Check available tools") { model.onSettings?() }
-                .font(.system(size: 11)).foregroundStyle(secondaryText).buttonStyle(.plain)
-            if model.input == nil { Text("or drop a file here").font(.system(size: 10.5)).foregroundStyle(secondaryText) }
+    private var welcome: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "circle.hexagongrid").font(.system(size: 36, weight: .light)).symbolRenderingMode(.hierarchical)
+                .foregroundStyle(OrbitPalette.accent(for: scheme))
+            Text("At your fingertips.").font(.system(size: 23, weight: .semibold, design: .rounded))
+            Text(FileOrbitRuntime.isPreview ? "Open a sample to explore the new wheel.\nThe installed shortcut stays with FileOrbit." : "Select a file in Finder.\nDouble-tap ⌘ to see its actions.")
+                .font(.system(size: 12)).multilineTextAlignment(.center).foregroundStyle(.secondary)
+            Button("Choose files…") { model.chooseFile() }.buttonStyle(.borderedProminent).tint(OrbitPalette.accent(for: scheme))
+            HStack {
+                Button("Glass Shelf") { model.onShelf?([]) }
+                Button("Settings") { model.onSettings?() }
+            }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary)
+            Text("Everything stays on your Mac.").font(.system(size: 10)).foregroundStyle(.tertiary)
         }
-        .padding(28)
-        .frame(width: OrbitLayout.cardFrame.width, height: OrbitLayout.cardFrame.height)
-        .modifier(OrbitGlass(shape: RoundedRectangle(cornerRadius: 32)))
-        .overlay { if dropTarget { RoundedRectangle(cornerRadius: 32).strokeBorder(accent, lineWidth: 2) } }
-        .position(x: OrbitLayout.cardFrame.midX, y: OrbitLayout.cardFrame.midY)
-    }
-
-    @ViewBuilder private func glassGroup<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        if #available(macOS 26.0, *) { GlassEffectContainer(spacing: 4) { content() } }
-        else { content() }
-    }
-    private func sizeColumn(title: String, value: String) -> some View {
-        VStack(spacing: 5) {
-            Text(title).font(.system(size: 8, weight: .semibold)).tracking(1.2).foregroundStyle(secondaryText)
-            Text(value).font(.system(size: 18, weight: .medium, design: .rounded))
-        }
-    }
-    private func isCompression(_ action: FileAction) -> Bool { if case .compress = action.operation { return true }; return false }
-    private func moveSelection(_ delta: Int) { selectedAction = OrbitLayout.nextSelection(selectedAction, delta: delta, count: actions.count) }
-    private func movePreset(_ delta: Int) {
-        let presets = CompressionPreset.allCases
-        let current = presets.firstIndex(of: model.preset) ?? 0
-        model.preset = presets[OrbitLayout.nextSelection(current, delta: delta, count: presets.count)]
-    }
-    private func presetSymbol(_ preset: CompressionPreset) -> String {
-        switch preset { case .gentle: return "leaf"; case .balanced: return "slider.horizontal.3"; case .small: return "arrow.down.right.and.arrow.up.left" }
-    }
-    private func presetCaption(_ preset: CompressionPreset) -> String {
-        switch preset {
-        case .gentle: return FileKind.detect(model.input ?? URL(fileURLWithPath: "/")) == .pdf ? "Optimize structure · Preserve image detail" : "Higher quality · A modest reduction"
-        case .balanced: return "A balance of size and image detail"
-        case .small: return "Smaller file · Less image detail"
-        }
-    }
-    private func presetDescription(_ preset: CompressionPreset) -> String {
-        if model.input.map({ FileKind.detect($0) == .pdf }) == true {
-            switch preset {
-            case .gentle: return "Optimize PDF structure without lossy image conversion."
-            case .balanced: return "Optimize structure and eligible embedded images."
-            case .small: return "Stronger JPEG compression of eligible PDF images."
-            }
-        }
-        switch preset {
-        case .gentle: return "Higher image quality. A modest reduction."
-        case .balanced: return "Smaller images with a practical quality balance."
-        case .small: return "Lower resolution and quality for smaller files."
-        }
+        .padding(26).frame(width: 320, height: 290)
+        .modifier(LiquidGlassStyle(shape: RoundedRectangle(cornerRadius: 32)))
+        .position(x: OrbitLayout.center.x, y: OrbitLayout.center.y)
     }
 }
 
-private struct OrbitSegment: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let title: String
-    let symbol: String
+private struct OrbitModeTransition: ViewModifier {
+    let angle: Double
+    let opacity: Double
+    func body(content: Content) -> some View { content.rotationEffect(.degrees(angle)).opacity(opacity) }
+}
+private struct OrbitActionSector: View {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let action: OrbitAction
     let angle: Double
     let span: Double
     let active: Bool
     let perform: () -> Void
-
     var body: some View {
-        let shape = OrbitPetal(centerAngle: angle, span: span)
-        let labelPoint = OrbitLayout.polar(radius: 149, degrees: angle, center: CGPoint(x: 205, y: 205))
+        let shape = AnnularWedgeShape(centerAngle: angle, span: span)
+        let point = OrbitLayout.polar(radius: OrbitLayout.labelRadius, degrees: angle, center: OrbitLayout.wheelCenter)
+        let offset = OrbitLayout.polar(radius: active ? 6 : 0, degrees: angle, center: .zero)
         Button(action: perform) {
             ZStack {
                 Color.clear
-                VStack(spacing: 9) {
-                    Image(systemName: symbol).font(.system(size: 21, weight: .light))
-                    Text(title).font(.system(size: title.count > 7 ? 11 : 12, weight: .semibold)).tracking(0.3)
+                VStack(spacing: 5) {
+                    Image(systemName: action.symbol).font(.system(size: 17, weight: .medium)).symbolRenderingMode(.hierarchical)
+                        .symbolEffect(.bounce, options: .nonRepeating, isActive: active && !reduceMotion)
+                    Text(action.title).font(.system(size: action.title.count > 8 ? 8.5 : 10, weight: active ? .bold : .semibold))
+                        .lineLimit(2).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 }
-                .foregroundStyle(colorScheme == .dark ? (active ? OrbitNight.accent : OrbitNight.text) : (active ? orbitAccent : .primary))
-                .position(labelPoint)
+                .frame(width: max(46, min(78, CGFloat(span) * 1.1)))
+                .foregroundStyle(active ? OrbitPalette.activeText(for: scheme) : OrbitPalette.primaryText(for: scheme))
+                .position(point)
             }
-            .frame(width: 410, height: 410)
-            .modifier(OrbitGlass(shape: shape, active: active))
-            .contentShape(shape)
+            .frame(width: 384, height: 384)
+            .modifier(LiquidGlassStyle(shape: shape, active: active)).contentShape(shape)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).scaleEffect(active ? 1.03 : 1).offset(x: offset.x, y: offset.y)
+        .accessibilityLabel(action.title).accessibilityHint(action.subtitle).help(action.subtitle)
+    }
+}
+private struct OrbitParameterSector: View {
+    @Environment(\.colorScheme) private var scheme
+    let parameter: OrbitParameter
+    let shape: AnnularWedgeShape
+    let angle: Double
+    let active: Bool
+    let perform: () -> Void
+    private var tangentRotation: Double {
+        let value = (angle + 90).truncatingRemainder(dividingBy: 180)
+        return value > 90 ? value - 180 : value < -90 ? value + 180 : value
+    }
+    var body: some View {
+        let point = OrbitLayout.polar(radius: OrbitLayout.secondaryLabelRadius, degrees: angle, center: OrbitLayout.wheelCenter)
+        let offset = OrbitLayout.polar(radius: active ? 6 : 0, degrees: angle, center: .zero)
+        Button(action: perform) {
+            ZStack {
+                Color.clear
+                VStack(spacing: 2) {
+                    Text(parameter.title).font(.system(size: 10, weight: .bold))
+                    Text(parameter.subtitle).font(.system(size: 7.5, weight: .medium))
+                }.lineLimit(1).frame(width: 94, height: 28)
+                    .rotationEffect(.degrees(tangentRotation))
+                    .foregroundStyle(active ? OrbitPalette.activeText(for: scheme) : OrbitPalette.primaryText(for: scheme))
+                    .position(point)
+            }.frame(width: 384, height: 384)
+                .modifier(LiquidGlassStyle(shape: shape, active: active)).contentShape(shape)
+        }
+        .buttonStyle(.plain).scaleEffect(active ? 1.03 : 1).offset(x: offset.x, y: offset.y)
+        .accessibilityLabel(parameter.title + ", " + parameter.subtitle)
+    }
+}
+private struct OrbitHub: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var inspector: FileInspector
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        Button { if let input = model.input { model.onShelf?([input]) } } label: {
+            VStack(spacing: 4) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8).fill(.white.opacity(scheme == .dark ? 0.08 : 0.48))
+                    if let image = inspector.thumbnail { Image(nsImage: image).resizable().scaledToFit().padding(3) }
+                    else { Image(systemName: "doc").font(.system(size: 21)).foregroundStyle(.secondary) }
+                }.frame(width: 34, height: 36)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.white.opacity(0.35), lineWidth: 1))
+                Text(model.input?.lastPathComponent ?? "FileOrbit").font(.system(size: 9.5, weight: .semibold))
+                    .lineLimit(1).truncationMode(.middle).frame(width: 88)
+                Text(model.prediction ?? inspector.metadataText)
+                    .font(.system(size: 8, weight: .medium)).lineLimit(2).multilineTextAlignment(.center)
+                    .foregroundStyle(model.prediction == nil ? OrbitPalette.secondaryText(for: scheme) : OrbitPalette.activeText(for: scheme))
+                    .frame(width: 88, height: 22).id(model.prediction ?? inspector.metadataText)
+                    .transition(.opacity).animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: model.prediction)
+            }
+            .frame(width: 104, height: 104)
+            .modifier(LiquidGlassStyle(shape: Circle(), active: model.isDraggingFile))
+            .contentShape(Circle())
+        }.buttonStyle(.plain).help("Open Glass Shelf · drop files here to collect them")
+            .accessibilityLabel("File inspector: " + (model.input?.lastPathComponent ?? "No file") + ", " + inspector.metadataText)
+            .accessibilityHint("Opens the batch shelf")
     }
 }
 
-private struct OrbitGlass<S: Shape>: ViewModifier {
-    let shape: S
-    var active = false
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var edge: LinearGradient {
-        let colors: [Color]
-        if colorScheme == .dark {
-            colors = active
-                ? [OrbitNight.accent.opacity(0.64), OrbitNight.accent.opacity(0.24), OrbitNight.accent.opacity(0.12)]
-                : [.white.opacity(0.30), .white.opacity(0.09), .white.opacity(0.035)]
-        } else {
-            let color = active ? orbitAccent.opacity(0.50) : Color.white.opacity(0.60)
-            colors = [color, color]
-        }
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+@MainActor final class OrbitDropSession: ObservableObject {
+    var urls: [URL] = []
+    var generation = UUID()
+    var entered = false
+    static func pasteboardURLs() -> [URL] {
+        (NSPasteboard(name: .drag).readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
     }
-
-    @ViewBuilder func body(content: Content) -> some View {
-        glass(content)
-            .overlay(shape.stroke(edge, lineWidth: 0.75).allowsHitTesting(false))
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.30 : 0.08),
-                    radius: colorScheme == .dark ? 14 : 11, x: 0, y: colorScheme == .dark ? 6 : 4)
-    }
-    @ViewBuilder private func glass(_ content: Content) -> some View {
-        if reduceTransparency {
-            content.background {
-                if colorScheme == .dark {
-                    shape.fill(active ? OrbitNight.selected : OrbitNight.surface)
-                } else {
-                    shape.fill(Color(NSColor.windowBackgroundColor))
-                        .overlay(shape.fill(active ? orbitAccent.opacity(0.14) : .clear))
-                }
+    static func load(_ providers: [NSItemProvider]) async -> [URL] {
+        var urls: [URL] = []
+        for provider in providers {
+            let url: URL? = await withCheckedContinuation { continuation in
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url) }
             }
-        } else if #available(macOS 26.0, *) {
-            if colorScheme == .dark {
-                content.glassEffect(.regular.tint(active ? OrbitNight.selected.opacity(0.94) : OrbitNight.surface.opacity(0.88)), in: shape)
-            } else {
-                content.glassEffect(active ? .regular.tint(orbitAccent.opacity(0.22)) : .regular, in: shape)
-            }
-        } else {
-            content.background {
-                shape.fill(.thinMaterial)
-                    .overlay(shape.fill(colorScheme == .dark
-                                        ? (active ? OrbitNight.selected : OrbitNight.surface).opacity(0.88)
-                                        : (active ? orbitAccent.opacity(0.12) : .clear)))
-            }
+            if let url, url.isFileURL { urls.append(url) }
         }
+        return urls
     }
 }
+private struct OrbitFileDropDelegate: DropDelegate {
+    let model: AppModel
+    let session: OrbitDropSession
+    func validateDrop(info: DropInfo) -> Bool { model.stage != .working && info.hasItemsConforming(to: [UTType.fileURL.identifier]) }
+    func dropEntered(info: DropInfo) {
+        session.entered = true; session.generation = UUID(); session.urls = OrbitDropSession.pasteboardURLs()
+        model.isDraggingFile = true
+        if let first = session.urls.first, first != model.input { model.select(first) }
+        if session.urls.isEmpty {
+            let generation = session.generation, providers = info.itemProviders(for: [UTType.fileURL.identifier])
+            Task { @MainActor in
+                let urls = await OrbitDropSession.load(providers)
+                guard session.entered, session.generation == generation else { return }
+                session.urls = urls
+                if let first = urls.first, first != model.input { model.select(first) }
+            }
+        }
+    }
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        model.updateModifiers(NSEvent.modifierFlags)
+        let point = CGPoint(x: info.location.x - OrbitLayout.wheelFrame.minX, y: info.location.y - OrbitLayout.wheelFrame.minY)
+        model.hover(point)
+        return DropProposal(operation: model.acceptsDrop(at: point) ? .copy : .forbidden)
+    }
+    func dropExited(info: DropInfo) { session.entered = false; model.isDraggingFile = false; model.hover(nil) }
+    func performDrop(info: DropInfo) -> Bool {
+        let point = CGPoint(x: info.location.x - OrbitLayout.wheelFrame.minX, y: info.location.y - OrbitLayout.wheelFrame.minY)
+        guard model.acceptsDrop(at: point) else { session.entered = false; model.isDraggingFile = false; return false }
+        let urls = session.urls
+        session.entered = false; model.isDraggingFile = false
+        if !urls.isEmpty { model.drop(urls, at: point) }
+        else {
+            let providers = info.itemProviders(for: [UTType.fileURL.identifier])
+            Task { @MainActor in
+                let loaded = await OrbitDropSession.load(providers)
+                // No synchronous selection was available: collect safely in the shelf.
+                if !loaded.isEmpty { model.onShelf?(loaded) }
+            }
+        }
+        return true
+    }
+}
+
+#if FILEORBIT_XCODE_PREVIEWS
+#Preview("Optical Daylight Quartz") { OrbitPreviewScene().preferredColorScheme(.light) }
+#Preview("Smoked Obsidian Crystal") { OrbitPreviewScene().preferredColorScheme(.dark) }
+@MainActor private struct OrbitPreviewScene: View {
+    @StateObject private var model = OrbitPreviewScene.makeModel()
+    var body: some View { OrbitView(model: model) }
+    private static func makeModel() -> AppModel {
+        let model = AppModel()
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("FileOrbit-preview-" + UUID().uuidString + ".pdf")
+        let document = PDFDocument()
+        for index in 0..<2 {
+            let image = NSImage(size: NSSize(width: 300, height: 400), flipped: false) { rect in
+                NSColor(calibratedRed: 0.10, green: 0.45, blue: 0.48, alpha: 1).setFill(); rect.fill()
+                ("Design study · \(index + 1)" as NSString).draw(at: NSPoint(x: 24, y: 200), withAttributes: [.font: NSFont.systemFont(ofSize: 22, weight: .bold), .foregroundColor: NSColor.white])
+                return true
+            }
+            if let page = PDFPage(image: image) { document.insert(page, at: index) }
+        }
+        if document.write(to: source) { model.select(source); model.selectedActionID = "convert-png"; model.parameterParentID = "convert-png" }
+        return model
+    }
+}
+#endif

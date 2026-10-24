@@ -7,7 +7,7 @@ struct SettingsView: View {
     @ObservedObject var model: AppModel
     @State private var loginEnabled = SMAppService.mainApp.status == .enabled
     @State private var settingsError: String?
-    @AppStorage("FileOrbit.appearance") private var appearance = "system"
+    @ObservedObject private var preferences = StudioPreferences.shared
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -18,22 +18,22 @@ struct SettingsView: View {
                 if !FileOrbitRuntime.isPreview {
                     GroupBox {
                         VStack(alignment: .leading, spacing: 10) {
-                            Picker("Appearance", selection: $appearance) {
+                            Picker("Appearance", selection: $preferences.appearance) {
                                 Text("System").tag("system")
                                 Text("Light").tag("light")
                                 Text("Dark").tag("dark")
                             }
                             .pickerStyle(.segmented)
-                            .onChange(of: appearance) { _, value in
+                            .onChange(of: preferences.appearance) { _, value in
                                 NSApp.appearance = FileOrbitRuntime.appearance(for: value)
                             }
-                            Text("Dark uses the graphite and smoky-lavender palette. This changes FileOrbit only.")
+                            Text("System follows macOS. Light uses clear quartz; Dark uses smoked glass and emerald accents.")
                                 .font(.system(size: 11)).foregroundStyle(.secondary)
                         }.padding(12)
                     }
                 }
                 if FileOrbitRuntime.isPreview {
-                    Label("This preview uses Choose File. Double-tap Command stays with your installed FileOrbit.", systemImage: "eye")
+                    Label("Open a sample or drop files onto this preview. Double-tap Command stays with your installed FileOrbit.", systemImage: "eye")
                         .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
                 } else {
                 GroupBox {
@@ -59,9 +59,11 @@ struct SettingsView: View {
                         Label("Local converters", systemImage: "shippingbox").font(.headline)
                         dependency("LibreOffice", description: "DOCX, PPTX and text document conversion", url: model.environment.libreOfficeURL, key: "FileOrbit.libreOfficePath")
                         Divider()
-                        dependency("qpdf", description: "PDF compression", url: model.environment.qpdfURL, key: "FileOrbit.qpdfPath")
+                        dependency("qpdf", description: "PDF compression and document metadata removal", url: model.environment.qpdfURL, key: "FileOrbit.qpdfPath")
                         Divider()
                         dependency("resvg", description: "SVG rendering", url: model.environment.resvgURL, key: "FileOrbit.resvgPath")
+                        Divider()
+                        dependency("cwebp", description: "WebP image encoding", url: model.environment.cwebpURL, key: "FileOrbit.cwebpPath")
                         Text("Image and basic PDF conversions use macOS. Converters are detected from this app, Applications, Homebrew, or a path you choose. Missing engines hide their actions.")
                             .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         Button("Check again") { model.refresh() }
@@ -81,7 +83,7 @@ struct SettingsView: View {
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Originals always stay intact.").font(.system(size: 12, weight: .medium))
-                    Text("New files are saved beside the source. Compression saves a copy only when it is smaller. PDF-to-Office, OCR, animated/multipage image conversion, and batch conversion are not included in this preview.")
+                    Text("New files are saved beside the source. Compression saves a copy only when it is smaller. OCR, batch processing, and PDF redaction run locally. PDF-to-Office and animated/multipage image conversion are not included.")
                         .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     Text("FileOrbit \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development") · Preview").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 8)
                 }

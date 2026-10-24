@@ -23,4 +23,5 @@ unzip -oq "$STAGE/qpdf.zip" -d "$VENDOR/qpdf"
 unzip -oq "$STAGE/resvg.zip" -d "$VENDOR/resvg"
 "$VENDOR/qpdf/bin/qpdf" --version
 "$VENDOR/resvg/resvg" --version
+"$ROOT/scripts/build-webp-helper.sh"
 printf 'Verified helpers saved in %s\n' "$VENDOR"

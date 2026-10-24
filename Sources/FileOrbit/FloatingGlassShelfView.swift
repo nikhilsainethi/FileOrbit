@@ -13,7 +13,9 @@ struct FloatingGlassShelfView: View {
     var body: some View {
         VStack(spacing: 9) {
             HStack(spacing: 7) {
-                Image(systemName: "square.stack.3d.up.fill").foregroundStyle(OrbitPalette.accent(for: colorScheme))
+                if model.items.isEmpty {
+                    Image(systemName: "square.stack.3d.up.fill").foregroundStyle(OrbitPalette.accent(for: colorScheme))
+                } else { ShelfThumbnailStack(urls: Array(model.items.prefix(3)).map(\.url)) }
                 Text("Glass Shelf").font(.system(size: 13, weight: .semibold))
                 Spacer(minLength: 0)
                 Button { model.isPinned.toggle() } label: { Image(systemName: model.isPinned ? "pin.fill" : "pin") }
@@ -36,7 +38,7 @@ struct FloatingGlassShelfView: View {
                     }
                 }.frame(maxHeight: .infinity)
                 HStack {
-                    Text("\(model.items.count) files").font(.system(size: 10)).foregroundStyle(.secondary)
+                    Text("\(model.items.count) file\(model.items.count == 1 ? "" : "s")").font(.system(size: 10)).foregroundStyle(.secondary)
                     Spacer()
                     Button("Add", action: chooseFiles).disabled(model.isRunning)
                     Button("Clear") { model.clear() }.disabled(model.isRunning)
@@ -47,6 +49,7 @@ struct FloatingGlassShelfView: View {
         .padding(13)
         .frame(width: 240, height: 280)
         .foregroundStyle(OrbitPalette.primaryText(for: colorScheme))
+        .tint(OrbitPalette.accent(for: colorScheme))
         .modifier(LiquidGlassStyle(shape: RoundedRectangle(cornerRadius: 25), active: isTargeted))
         .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isTargeted, perform: acceptDrop)
     }
@@ -139,5 +142,33 @@ private struct ShelfFileRow: View {
         .padding(.vertical, 3)
         .task(id: item.url) { inspector.load(item.url) }
         .onDisappear { inspector.cancel() }
+    }
+}
+
+@MainActor private struct ShelfThumbnailStack: View {
+    let urls: [URL]
+    var body: some View {
+        ZStack {
+            ForEach(Array(urls.enumerated()), id: \.element) { index, url in
+                ShelfStackImage(url: url)
+                    .rotationEffect(.degrees(Double(index) * 7 - 5))
+                    .rotation3DEffect(.degrees(12), axis: (x: 1, y: -0.2, z: 0))
+                    .offset(x: CGFloat(index) * 3, y: -CGFloat(index) * 2)
+                    .zIndex(Double(urls.count - index))
+            }
+        }.frame(width: 24, height: 24).accessibilityHidden(true)
+    }
+}
+@MainActor private struct ShelfStackImage: View {
+    let url: URL
+    @StateObject private var inspector = FileInspector()
+    var body: some View {
+        Group {
+            if let image = inspector.thumbnail ?? inspector.fallbackIcon { Image(nsImage: image).resizable().scaledToFit() }
+            else { Image(systemName: "doc") }
+        }.frame(width: 18, height: 23).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 3))
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(.white.opacity(0.5), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+            .task(id: url) { inspector.load(url) }.onDisappear { inspector.cancel() }
     }
 }

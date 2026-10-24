@@ -1,5 +1,34 @@
 # Verification record — October 24, 2026
 
+## 0.3 optical glass development preview — October 24, 2026
+
+This record applies to the isolated `io.fileorbit.preview` candidate (version 0.3.0, build 3), not the public release. The production installation and public GitHub release were left unchanged. The same Apple Silicon/macOS 27.2 environment described below was used.
+
+### Automated and packaged verification
+
+- **125 tests in 16 suites passed**, zero failures, 6.278 seconds after build. Real qpdf, resvg, cwebp and LibreOffice were available. The run includes annular geometry, transformed hit testing, mode/preset state, late-arriving PDF metadata, transparent-gap rejection, stale drag-pasteboard handling, redaction-editor cancellation, mixed batches, and safe Undo checks.
+- **29 extracted-package checks passed**, zero skips, 12.867 seconds against `FileOrbit-Glass-Preview-macOS-arm64.zip`. These exercise actual output content, not only process exit status: WebP pixels/alpha/dimensions; PDF first/all/tall exports; split-page order/content; Vision OCR; document Info/XMP/source-ID removal; raster redaction with hidden-object and OCR checks; Office conversion; compression; original integrity; naming collisions; signatures and license inventory.
+- Compression fixture results: image **288,718 → 88,856 bytes**; deliberately uncompressed PDF **16,784,027 → 159,176 bytes**. These are test measurements, not promised savings.
+- The bundled minimal cwebp 1.6.0/libpng 1.6.59 build uses only macOS system runtime libraries. Third-party notices and pinned source checksums are included.
+- Independent specification and code-quality reviews found and prompted fixes for stale drag sessions, delayed metadata, gap drops, redaction cancellation, busy-export behavior, and Undo's immediate output snapshot. Regression tests cover those fixes.
+
+### Native app observations
+
+The real compiled preview was opened with native UI automation and visually inspected in Light and Dark appearances. System appearance was restored afterward. Actual Quick Look thumbnails, page counts, hover presets, mode switching, the Studio window and its appearance controls were observed. Accessible Studio reordering and Reset order worked.
+
+A rectangular region was drawn on the sample PDF and exported to a separate flattened PDF. The result passed qpdf validation; the blacked-out region was visually inspected through the HUD's Space-bar Quick Look action. The HUD correctly reported that this 19 KB input produced a larger 182 KB rasterized output. A PDF-plus-JPEG shelf batch produced three PNG pages and one JPEG-to-PNG result; both rows reported Saved. A wheel-driven first-page PDF→WebP export produced a decodable 1,224 × 1,584 image (about 50 KB). SHA-256 checks confirmed that all four original sample files were unchanged after these operations.
+
+Native Studio reopening initially exposed sizing and app-reopen interactions; the final candidate opens the Studio window without another wheel covering it. Screenshots in `docs/images/optical-wheel-*.jpg` are captures of the final running candidate.
+
+### Explicit verification limits
+
+- The preview deliberately disables global double-Command and Finder-drag monitoring. Their new-build physical-key delivery must be checked on the production candidate after preview approval; passing recognizer/state tests does not prove macOS event delivery. The original Command recognizer/backend was preserved.
+- Studio's actual pointer-drag reorder gesture could not be completed reliably by the automation tool; its accessible reorder path and persistence tests passed. Cross-app drag/drop, AirDrop chooser/recipient flow, Terminal routing, login-at-startup and multi-monitor/Spaces behavior remain manual release checks.
+- Full Xcode canvas macros, Intel hardware and older supported macOS versions were not run here. The normal Command Line Tools build compiled successfully.
+- The app is ad-hoc signed, not Developer ID signed or notarized. This is a review preview, not a claim of broad production readiness.
+
+The earlier release records below remain historical evidence for their named builds.
+
 ## Verified environment
 
 - Apple Silicon Mac, macOS 27.2 (26B5112a).

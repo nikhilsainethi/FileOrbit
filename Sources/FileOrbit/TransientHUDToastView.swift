@@ -45,7 +45,7 @@ struct TransientHUDToastView: View {
         .foregroundStyle(OrbitPalette.primaryText(for: colorScheme))
         .modifier(LiquidGlassStyle(shape: Capsule()))
         .onHover { value in withAnimation(reduceMotion ? nil : .easeOut(duration: 0.14)) { hovering = value } }
-        .focusable()
+        .focusable().focusEffectDisabled()
         .onKeyPress(.space) {
             guard model.phase == .complete, model.onQuickLook != nil else { return .ignored }
             model.quickLook(); return .handled
