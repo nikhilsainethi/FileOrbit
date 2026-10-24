@@ -44,6 +44,7 @@ final class FileInspector: ObservableObject {
     @Published private(set) var pageCount: Int?
     @Published private(set) var itemCount: Int?
     @Published private(set) var metadataText = ""
+    @Published private(set) var metadataLoaded = false
     @Published private(set) var isLoading = false
     private var generation = UUID()
     private var request: QLThumbnailGenerator.Request?
@@ -54,15 +55,18 @@ final class FileInspector: ObservableObject {
         let id = generation
         if let request { QLThumbnailGenerator.shared.cancel(request) }
         request = nil; metadataTask?.cancel()
-        thumbnail = nil; fallbackIcon = nil; sizeText = ""; pageCount = nil; itemCount = nil; metadataText = ""; isLoading = false
+        thumbnail = nil; fallbackIcon = nil; sizeText = ""; pageCount = nil; itemCount = nil; metadataText = ""; metadataLoaded = false; isLoading = false
         guard let url, url.isFileURL, FileManager.default.fileExists(atPath: url.path) else { return }
         fallbackIcon = NSWorkspace.shared.icon(forFile: url.path)
         isLoading = true
         metadataTask = Task { [weak self] in
             let metadata = await Task.detached(priority: .utility) { try? FileMetadataSnapshot.read(url) }.value
-            guard !Task.isCancelled, let self, self.generation == id, let metadata else { return }
-            self.sizeText = metadata.sizeText; self.pageCount = metadata.pageCount
-            self.itemCount = metadata.itemCount; self.metadataText = metadata.detail
+            guard !Task.isCancelled, let self, self.generation == id else { return }
+            if let metadata {
+                self.sizeText = metadata.sizeText; self.pageCount = metadata.pageCount
+                self.itemCount = metadata.itemCount; self.metadataText = metadata.detail
+            }
+            self.metadataLoaded = true
         }
         let newRequest = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 160, height: 160), scale: NSScreen.main?.backingScaleFactor ?? 2, representationTypes: .thumbnail)
         request = newRequest

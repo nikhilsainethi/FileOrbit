@@ -25,6 +25,19 @@ struct InspectorHistoryTests {
         #expect(inspector.thumbnail == nil)
         #expect(inspector.sizeText.isEmpty)
         #expect(inspector.metadataText.isEmpty)
+        #expect(!inspector.metadataLoaded)
+    }
+    @Test @MainActor func metadataReadinessIsIndependentOfQuickLook() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("metadata-\(UUID()).txt")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data("Local metadata".utf8).write(to: url)
+        let inspector = FileInspector()
+        inspector.load(url)
+        for _ in 0..<100 where !inspector.metadataLoaded { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(inspector.metadataLoaded)
+        #expect(!inspector.sizeText.isEmpty)
+        inspector.cancel()
+        #expect(!inspector.metadataLoaded)
     }
     @Test @MainActor func historyIsSessionOnlyUnlessOptedInAndClearsPersistence() {
         let name = "HistoryTests.\(UUID())"
