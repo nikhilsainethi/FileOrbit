@@ -52,6 +52,38 @@ struct AuxiliaryModelTests {
         #expect(try String(contentsOf: source, encoding: .utf8) == "Source")
     }
 
+    @Test @MainActor func undoDoesNotAcceptAnEditBeforeBackgroundHashStarts() async throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("source.txt")
+        let output = directory.appendingPathComponent("output.txt")
+        try Data("Source".utf8).write(to: source)
+        try Data("Saved output".utf8).write(to: output)
+        let hud = JobHUDModel()
+        hud.complete(input: source, result: ConversionResult(outputURLs: [output], inputBytes: 6, outputBytes: 12))
+        // No actor yield: the completion-time snapshot must already exist, while
+        // its asynchronously scheduled digest work has not begun.
+        try Data("My edited output".utf8).write(to: output)
+        for _ in 0..<100 where !hud.canUndo { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(!hud.canUndo)
+        #expect(try String(contentsOf: output, encoding: .utf8) == "My edited output")
+    }
+
+    @Test func undoRejectsAnEditBetweenSnapshotAndDigestEvenWhenSizeIsUnchanged() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let source = directory.appendingPathComponent("source.txt")
+        let output = directory.appendingPathComponent("output.txt")
+        try Data("Source".utf8).write(to: source)
+        try Data("Result".utf8).write(to: output)
+        let snapshot = try OutputUndoRecord.snapshot(source: source, outputs: [output])
+        let previousDate = try FileManager.default.attributesOfItem(atPath: output.path)[.modificationDate] as? Date
+        try Data("Edited".utf8).write(to: output)
+        if let previousDate { try FileManager.default.setAttributes([.modificationDate: previousDate], ofItemAtPath: output.path) }
+        #expect(throws: (any Error).self) { try OutputUndoRecord.capture(snapshot: snapshot) }
+        #expect(try String(contentsOf: output, encoding: .utf8) == "Edited")
+    }
+
     @Test func undoMovesOnlyCapturedFilesAndLeavesNewFolderContents() throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

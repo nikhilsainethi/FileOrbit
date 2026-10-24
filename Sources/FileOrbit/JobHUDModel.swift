@@ -7,29 +7,51 @@ import FileOrbitCore
 /// Captures only the files published by the engine. Folders are deliberately
 /// never trashed: someone may have put another file into a page-export folder.
 struct OutputUndoRecord: Sendable {
-    private struct Fingerprint: Equatable, Sendable {
+    struct FileState: Equatable, Sendable {
+        let canonicalPath: String
         let identity: String
         let size: Int64
         let modifiedSeconds: Int64
         let modifiedNanos: Int64
-        let digest: String
+        let changedSeconds: Int64
+        let changedNanos: Int64
 
-        static func read(_ url: URL) throws -> Fingerprint {
+        static func read(_ url: URL, descriptor: Int32) throws -> FileState {
+            var attributes = stat()
+            guard fstat(descriptor, &attributes) == 0, attributes.st_mode & S_IFMT == S_IFREG else { throw UndoError.changed }
+            return FileState(canonicalPath: url.resolvingSymlinksInPath().standardizedFileURL.path,
+                             identity: "\(attributes.st_dev):\(attributes.st_ino)", size: attributes.st_size,
+                             modifiedSeconds: Int64(attributes.st_mtimespec.tv_sec), modifiedNanos: Int64(attributes.st_mtimespec.tv_nsec),
+                             changedSeconds: Int64(attributes.st_ctimespec.tv_sec), changedNanos: Int64(attributes.st_ctimespec.tv_nsec))
+        }
+        static func open(_ url: URL) throws -> FileHandle {
+            guard url.isFileURL else { throw UndoError.unsafe }
             let descriptor = url.withUnsafeFileSystemRepresentation { path in path.map { Darwin.open($0, O_RDONLY | O_NOFOLLOW) } ?? -1 }
             guard descriptor >= 0 else { throw UndoError.changed }
-            let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+            return FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        }
+        static func read(_ url: URL) throws -> FileState {
+            let handle = try open(url)
             defer { try? handle.close() }
-            var before = stat(), after = stat()
-            guard fstat(descriptor, &before) == 0, before.st_mode & S_IFMT == S_IFREG else { throw UndoError.changed }
+            return try read(url, descriptor: handle.fileDescriptor)
+        }
+    }
+    struct Snapshot: Sendable {
+        let files: [(url: URL, state: FileState)]
+    }
+    private struct Fingerprint: Equatable, Sendable {
+        let state: FileState
+        let digest: String
+
+        static func read(_ url: URL, expecting expected: FileState) throws -> Fingerprint {
+            let handle = try FileState.open(url)
+            defer { try? handle.close() }
+            guard try FileState.read(url, descriptor: handle.fileDescriptor) == expected else { throw UndoError.changed }
             var hash = SHA256()
             while let chunk = try handle.read(upToCount: 1_048_576), !chunk.isEmpty { hash.update(data: chunk) }
-            guard fstat(descriptor, &after) == 0,
-                  before.st_size == after.st_size,
-                  before.st_mtimespec.tv_sec == after.st_mtimespec.tv_sec,
-                  before.st_mtimespec.tv_nsec == after.st_mtimespec.tv_nsec else { throw UndoError.changed }
-            return Fingerprint(identity: "\(before.st_dev):\(before.st_ino)", size: before.st_size,
-                               modifiedSeconds: Int64(before.st_mtimespec.tv_sec), modifiedNanos: Int64(before.st_mtimespec.tv_nsec),
-                               digest: hash.finalize().map { String(format: "%02x", $0) }.joined())
+            guard try FileState.read(url, descriptor: handle.fileDescriptor) == expected,
+                  try FileState.read(url) == expected else { throw UndoError.changed }
+            return Fingerprint(state: expected, digest: hash.finalize().map { String(format: "%02x", $0) }.joined())
         }
     }
     enum UndoError: LocalizedError {
@@ -41,37 +63,45 @@ struct OutputUndoRecord: Sendable {
             }
         }
     }
-    private let files: [(url: URL, canonicalPath: String, fingerprint: Fingerprint)]
+    private let files: [(url: URL, fingerprint: Fingerprint)]
 
-    static func capture(source: URL, outputs: [URL]) throws -> OutputUndoRecord {
+    /// Establish the baseline immediately when the engine reports completion,
+    /// before yielding or displaying actions that could open an output in an editor.
+    /// Source contents are never hashed; its file identity is sufficient to exclude it.
+    static func snapshot(source: URL, outputs: [URL]) throws -> Snapshot {
         guard !outputs.isEmpty else { throw UndoError.unsafe }
-        let sourceFingerprint = try Fingerprint.read(source)
-        let sourcePath = source.resolvingSymlinksInPath().standardizedFileURL.path
+        let sourceState = try FileState.read(source)
         var seen = Set<String>()
-        let files = try outputs.map { url -> (URL, String, Fingerprint) in
-            guard url.isFileURL else { throw UndoError.unsafe }
-            let canonical = url.resolvingSymlinksInPath().standardizedFileURL.path
-            guard canonical != sourcePath, seen.insert(canonical).inserted else { throw UndoError.unsafe }
-            let fingerprint = try Fingerprint.read(url)
-            guard fingerprint.identity != sourceFingerprint.identity else { throw UndoError.unsafe }
-            return (url, canonical, fingerprint)
+        let files = try outputs.map { url -> (URL, FileState) in
+            let state = try FileState.read(url)
+            guard state.canonicalPath != sourceState.canonicalPath,
+                  state.identity != sourceState.identity,
+                  seen.insert(state.canonicalPath).inserted else { throw UndoError.unsafe }
+            return (url, state)
         }
+        return Snapshot(files: files)
+    }
+
+    static func capture(snapshot: Snapshot) throws -> OutputUndoRecord {
+        let files = try snapshot.files.map { (url, state) in (url, try Fingerprint.read(url, expecting: state)) }
         return OutputUndoRecord(files: files)
     }
 
+    static func capture(source: URL, outputs: [URL]) throws -> OutputUndoRecord {
+        try capture(snapshot: snapshot(source: source, outputs: outputs))
+    }
+
     @discardableResult func validate() throws -> Bool {
-        for (url, canonical, captured) in files {
-            guard url.resolvingSymlinksInPath().standardizedFileURL.path == canonical,
-                  try Fingerprint.read(url) == captured else { throw UndoError.changed }
+        for (url, captured) in files {
+            guard try Fingerprint.read(url, expecting: captured.state) == captured else { throw UndoError.changed }
         }
         return true
     }
 
     func undo(trash: (URL) throws -> Void = { url in try FileManager.default.trashItem(at: url, resultingItemURL: nil) }) throws {
         try validate()
-        for (url, canonical, captured) in files {
-            guard url.resolvingSymlinksInPath().standardizedFileURL.path == canonical,
-                  try Fingerprint.read(url) == captured else { throw UndoError.changed }
+        for (url, captured) in files {
+            guard try Fingerprint.read(url, expecting: captured.state) == captured else { throw UndoError.changed }
             try trash(url)
         }
     }
@@ -168,12 +198,14 @@ final class JobHUDModel: ObservableObject {
         progress = total > 0 ? min(1, max(0, Double(completed) / Double(total))) : nil
     }
     func complete(input: URL, result: ConversionResult) {
+        let snapshot = try? OutputUndoRecord.snapshot(source: input, outputs: result.outputURLs)
         let id = UUID(); generation = id
         self.input = input; self.result = result; phase = .complete; progress = 1; error = nil
         canUndo = false; undoRecord = nil; isCancelling = false; isUndoing = false
         JobHistory.shared.record(input: input, result: result)
+        guard let snapshot else { return }
         Task { [weak self] in
-            let record = await Task.detached(priority: .utility) { try? OutputUndoRecord.capture(source: input, outputs: result.outputURLs) }.value
+            let record = await Task.detached(priority: .utility) { try? OutputUndoRecord.capture(snapshot: snapshot) }.value
             guard let self, self.generation == id else { return }
             self.undoRecord = record; self.canUndo = record != nil
         }
