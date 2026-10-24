@@ -5,16 +5,16 @@ import FileOrbitCore
 
 private let orbitAccent = Color(red: 0.08, green: 0.57, blue: 0.53)
 
-/// Midnight and muted slate glass, adapted from the user's Coolors reference:
-/// https://coolors.co/palettes/trending/dark
+/// Soft graphite glass and a restrained smoky-lavender highlight, informed by
+/// the neutral/plum family in https://coolors.co/palettes/trending/dark.
 /// Strong surface tint keeps pale desktop backgrounds from washing controls gray.
 private enum OrbitNight {
-    static let surface = Color(red: 23 / 255, green: 39 / 255, blue: 57 / 255)
-    static let selected = Color(red: 63 / 255, green: 71 / 255, blue: 94 / 255)
-    static let accent = Color(red: 201 / 255, green: 216 / 255, blue: 235 / 255)
-    static let text = Color(red: 232 / 255, green: 237 / 255, blue: 244 / 255)
-    static let secondary = Color(red: 171 / 255, green: 185 / 255, blue: 204 / 255)
-    static let buttonInk = Color(red: 14 / 255, green: 30 / 255, blue: 50 / 255)
+    static let surface = Color(red: 28 / 255, green: 28 / 255, blue: 34 / 255)
+    static let selected = Color(red: 73 / 255, green: 68 / 255, blue: 81 / 255)
+    static let accent = Color(red: 216 / 255, green: 206 / 255, blue: 231 / 255)
+    static let text = Color(red: 240 / 255, green: 237 / 255, blue: 244 / 255)
+    static let secondary = Color(red: 185 / 255, green: 179 / 255, blue: 194 / 255)
+    static let buttonInk = Color(red: 34 / 255, green: 31 / 255, blue: 41 / 255)
 }
 
 struct OrbitView: View {
