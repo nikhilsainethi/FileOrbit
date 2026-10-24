@@ -504,8 +504,10 @@ def main() -> int:
                     raise VerificationError("Office text fixture should produce one PDF page")
                 passed("txt_to_pdf_with_libreoffice")
                 office_ocr, _ = process(office_pdf, ["--ocr"])
-                if normalized_text(sentinel) not in normalized_text(office_ocr[0].read_text(encoding="utf-8")):
-                    raise VerificationError("OCR failed on the LibreOffice-generated PDF")
+                recognized_office = normalized_text(office_ocr[0].read_text(encoding="utf-8"))
+                if normalized_text(sentinel) not in recognized_office:
+                    # These are generated fixture strings, never user document contents.
+                    raise VerificationError(f"OCR failed on the LibreOffice-generated PDF: expected {normalized_text(sentinel)!r}; recognized {recognized_office!r}")
                 passed("libreoffice_pdf_ocr_recognizes_sentinel")
                 docx, _ = convert(text, "--to", "docx")
                 passed("txt_to_docx_with_libreoffice")
