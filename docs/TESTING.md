@@ -10,7 +10,7 @@
 
 ## Automated source tests
 
-**69 tests in 7 suites passed, zero failures.** Latest local full run: 7.620 seconds after build. Real qpdf, resvg, and LibreOffice paths were supplied/detected; their integration checks were exercised.
+**69 tests in 7 suites passed, zero failures.** Latest local full run: 4.625 seconds after build. Real qpdf, resvg, and LibreOffice paths were supplied/detected; their integration checks were exercised.
 
 Coverage includes:
 
@@ -25,7 +25,7 @@ Coverage includes:
 - Real TXT→PDF/DOCX→TXT and two-slide PPTX→PDF/images; DOCX media compression preserves XML and relationships.
 - Unsafe ZIP paths, symlinks, signed DOCX and linked Office-resource rejection.
 
-Regression failures were observed before implementing fixes for stale selection, Caps Lock/Command event handling, PDF annotations/rotation, and encoded SVG resource references.
+Regression failures were observed before implementing fixes for stale selection, Caps Lock/Command event handling, PDF annotations/rotation, and encoded SVG resource references. The first GitHub run also exposed a test that included shared-queue timer delay in its cancellation deadline. The test now waits for a real child process, signals cancellation from an independent thread, and measures from that request while retaining the three-second bound and checking child cleanup. Converter behavior was unchanged.
 
 Run:
 

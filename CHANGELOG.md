@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-preview.1 — 2026-10-24
+## 0.1.0-preview.2 — 2026-10-24
 
 First public preview for Apple Silicon Macs.
 

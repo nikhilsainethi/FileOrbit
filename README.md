@@ -6,7 +6,7 @@ FileOrbit is a native macOS menu-bar app that brings a glass conversion wheel to
 
 <img src="docs/images/glass-wheel.png" alt="FileOrbit's glass conversion wheel for a selected image" width="420">
 
-[Download the Apple Silicon preview](https://github.com/nikhilsainethi/FileOrbit/releases/download/v0.1.0-preview.1/FileOrbit-macOS-arm64.zip) · [Installation guide](docs/INSTALL.md) · [Release notes](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.1.0-preview.1)
+[Download the Apple Silicon preview](https://github.com/nikhilsainethi/FileOrbit/releases/download/v0.1.0-preview.2/FileOrbit-macOS-arm64.zip) · [Installation guide](docs/INSTALL.md) · [Release notes](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.1.0-preview.2)
 
 > **Preview release:** the download is ad hoc signed, but it is **not Developer ID signed or notarized by Apple**. macOS may block its first launch. Read the [first-launch instructions](docs/INSTALL.md#first-launch-and-macos-security) before installing. The binary is for Apple Silicon; macOS 15+ is the deployment target, and macOS 27.2 on Apple Silicon is the locally tested configuration. Older macOS versions and Intel builds still need verification.
 

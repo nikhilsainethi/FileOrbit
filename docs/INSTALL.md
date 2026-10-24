@@ -15,7 +15,7 @@ Older macOS versions and Intel builds have not yet been verified. This is an ear
 
 ## Download and install
 
-1. Open the [v0.1.0-preview.1 release](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.1.0-preview.1).
+1. Open the [v0.1.0-preview.2 release](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.1.0-preview.2).
 2. Under **Assets**, download **FileOrbit-macOS-arm64.zip**. The automatically generated “Source code” archives contain the project, not the app.
 3. Double-click the ZIP to extract it.
 4. Drag **FileOrbit.app** into your **Applications** folder. Grant permissions to this installed copy, rather than to a copy in Downloads or a synced folder.
