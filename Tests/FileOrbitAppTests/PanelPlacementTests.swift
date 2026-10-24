@@ -5,7 +5,7 @@ import Testing
 struct PanelPlacementTests {
     @Test func clampsAllCornersOnASecondaryDisplay() {
         let screen = CGRect(x: -1920, y: 120, width: 1920, height: 1050)
-        let size = CGSize(width: 468, height: 500)
+        let size = OrbitLayout.canvasSize
         for point in [CGPoint(x: -1920, y: 120), CGPoint(x: 0, y: 120), CGPoint(x: -1920, y: 1170), CGPoint(x: 0, y: 1170)] {
             let origin = OrbitPanelPlacement.origin(size: size, visibleFrame: screen, anchor: point)
             #expect(origin.x >= screen.minX + 12)
