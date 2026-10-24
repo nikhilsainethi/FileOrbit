@@ -228,6 +228,15 @@ def normalized_text(text: str) -> str:
     return " ".join(re.findall(r"[A-Z0-9]+", text.upper()))
 
 
+def contains_office_ocr_sentinel(recognized: str, sentinel: str) -> bool:
+    # Vision may return the right-aligned numeric marker as a separate block
+    # after the next line. Require the whole phrase and exact marker, without
+    # imposing an adjacency guarantee on the OCR engine's block ordering.
+    phrase, marker = normalized_text(sentinel).rsplit(" ", 1)
+    observed = normalized_text(recognized)
+    return f" {phrase} " in f" {observed} " and marker in observed.split()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
@@ -505,7 +514,7 @@ def main() -> int:
                 passed("txt_to_pdf_with_libreoffice")
                 office_ocr, _ = process(office_pdf, ["--ocr"])
                 recognized_office = normalized_text(office_ocr[0].read_text(encoding="utf-8"))
-                if normalized_text(sentinel) not in recognized_office:
+                if not contains_office_ocr_sentinel(recognized_office, sentinel):
                     # These are generated fixture strings, never user document contents.
                     raise VerificationError(f"OCR failed on the LibreOffice-generated PDF: expected {normalized_text(sentinel)!r}; recognized {recognized_office!r}")
                 passed("libreoffice_pdf_ocr_recognizes_sentinel")
