@@ -85,6 +85,7 @@ final class AppModel: ObservableObject {
     func back() { guard stage != .working else { return }; stage = .ready; errorMessage = nil }
     func reveal() { if let result { NSWorkspace.shared.activateFileViewerSelecting(result.outputURLs) } }
     func requestAccessibility() {
+        guard !FileOrbitRuntime.isPreview else { return }
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") { NSWorkspace.shared.open(url) }

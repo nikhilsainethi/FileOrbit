@@ -14,6 +14,10 @@ struct SettingsView: View {
                     Text("Make yourself at home.").font(.system(size: 25, weight: .medium, design: .rounded))
                     Text("FileOrbit runs locally. No uploads, accounts, or telemetry.").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
+                if FileOrbitRuntime.isPreview {
+                    Label("This preview uses Choose File. Double-tap Command stays with your installed FileOrbit.", systemImage: "eye")
+                        .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
+                } else {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
@@ -31,6 +35,7 @@ struct SettingsView: View {
                             .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }.padding(12)
                 }
+                }
                 GroupBox {
                     VStack(alignment: .leading, spacing: 14) {
                         Label("Local converters", systemImage: "shippingbox").font(.headline)
@@ -44,6 +49,7 @@ struct SettingsView: View {
                         Button("Check again") { model.refresh() }
                     }.padding(12)
                 }
+                if !FileOrbitRuntime.isPreview {
                 Toggle("Launch FileOrbit when I log in", isOn: $loginEnabled)
                     .onChange(of: loginEnabled) { _, value in
                         do {
@@ -54,6 +60,7 @@ struct SettingsView: View {
                             settingsError = "Could not change login behavior. Move FileOrbit to Applications first, then try again. \(error.localizedDescription)"
                         }
                     }
+                }
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Originals always stay intact.").font(.system(size: 12, weight: .medium))
                     Text("New files are saved beside the source. Compression saves a copy only when it is smaller. PDF-to-Office, OCR, animated/multipage image conversion, and batch conversion are not included in version 0.1.")

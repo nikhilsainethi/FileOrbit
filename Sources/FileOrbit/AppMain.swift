@@ -1,6 +1,31 @@
 import AppKit
 import SwiftUI
 import FileOrbitCore
+import OSLog
+
+enum FileOrbitRuntime {
+    static var isPreview: Bool { Bundle.main.object(forInfoDictionaryKey: "FileOrbitPreview") as? Bool == true }
+    private static let previewLogger = Logger(subsystem: "io.fileorbit.preview", category: "Panel")
+    static func recordPreview(_ event: String) {
+        if isPreview { previewLogger.notice("\(event, privacy: .public)") }
+    }
+    static var displayName: String { isPreview ? "FileOrbit Preview" : "FileOrbit" }
+}
+
+enum OrbitPanelPlacement {
+    static func origin(size: CGSize, visibleFrame: CGRect, anchor: CGPoint?) -> CGPoint {
+        let center = anchor ?? CGPoint(x: visibleFrame.midX, y: visibleFrame.midY)
+        func clamp(_ desired: CGFloat, minimum: CGFloat, maximum: CGFloat, extent: CGFloat) -> CGFloat {
+            // Keep the window's origin visible even on a display smaller than the panel.
+            guard maximum - minimum >= extent + 24 else { return minimum }
+            return min(max(desired, minimum + 12), maximum - extent - 12)
+        }
+        return CGPoint(
+            x: clamp(center.x - size.width / 2, minimum: visibleFrame.minX, maximum: visibleFrame.maxX, extent: size.width),
+            y: clamp(center.y - size.height / 2, minimum: visibleFrame.minY, maximum: visibleFrame.maxY, extent: size.height)
+        )
+    }
+}
 
 final class OrbitPanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -15,29 +40,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var panel: OrbitPanel?
     private var settingsWindow: NSWindow?
     private var outsideClick: Any?
+    private var panelKeyboard: Any?
     private var activationObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(CommandLine.arguments.contains("--ui-test") ? .regular : .accessory)
+        NSApp.setActivationPolicy(FileOrbitRuntime.isPreview || CommandLine.arguments.contains("--ui-test") ? .regular : .accessory)
         createStatusItem()
         model.onSettings = { [weak self] in self?.showSettings() }
-        model.onDismiss = { [weak self] in self?.panel?.orderOut(nil) }
+        model.onDismiss = { [weak self] in self?.panel?.orderOut(nil); FileOrbitRuntime.recordPreview("Dismissed with close action") }
         monitor.onGesture = { [weak self] in self?.handleFinderGesture() }
-        monitor.start()
+        if !FileOrbitRuntime.isPreview { monitor.start() }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in
                 self?.monitor.reset()
                 self?.model.refresh()
-                self?.monitor.start()
+                if !FileOrbitRuntime.isPreview { self?.monitor.start() }
             }
         }
         outsideClick = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            guard let self, self.model.stage != .working else { return }
+            guard let self, self.model.stage != .working, !FileOrbitRuntime.isPreview else { return }
             self.panel?.orderOut(nil)
+            FileOrbitRuntime.recordPreview("Outside click dismissed idle panel")
+        }
+        // Own-window events do not require Accessibility permission. Keep Escape
+        // reliable after a stage transition even when no SwiftUI control is focused.
+        panelKeyboard = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, let panel = self.panel, (event.window === panel || (event.window == nil && panel.isKeyWindow)), event.keyCode == 53,
+                  event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty else { return event }
+            if self.model.stage == .compression { self.model.back() }
+            else if self.model.stage != .working { panel.orderOut(nil) }
+            FileOrbitRuntime.recordPreview("Escape handled for panel")
+            return nil
         }
         if let index = CommandLine.arguments.firstIndex(of: "--open"), CommandLine.arguments.indices.contains(index + 1) {
             model.select(URL(fileURLWithPath: CommandLine.arguments[index + 1])); showPanel(nearPointer: false)
-        } else if !UserDefaults.standard.bool(forKey: "FileOrbit.hasLaunched") {
+        } else if FileOrbitRuntime.isPreview || !UserDefaults.standard.bool(forKey: "FileOrbit.hasLaunched") {
             UserDefaults.standard.set(true, forKey: "FileOrbit.hasLaunched")
             showPanel(nearPointer: false)
         }
@@ -56,14 +93,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         symbol?.isTemplate = true
         item.button?.image = symbol
         let menu = NSMenu()
-        menu.addItem(withTitle: "Open FileOrbit", action: #selector(openPanel), keyEquivalent: "")
+        if FileOrbitRuntime.isPreview {
+            let notice = NSMenuItem(title: "Design preview · shortcut stays with FileOrbit", action: nil, keyEquivalent: "")
+            notice.isEnabled = false
+            menu.addItem(notice)
+            menu.addItem(.separator())
+            let appearance = NSMenuItem(title: "Preview appearance", action: nil, keyEquivalent: "")
+            let submenu = NSMenu()
+            for (name, tag) in [("System", 0), ("Light", 1), ("Dark", 2)] {
+                let entry = NSMenuItem(title: name, action: #selector(previewAppearance(_:)), keyEquivalent: "")
+                entry.tag = tag; entry.target = self; submenu.addItem(entry)
+            }
+            appearance.submenu = submenu; menu.addItem(appearance)
+        }
+        menu.addItem(withTitle: "Open \(FileOrbitRuntime.displayName)", action: #selector(openPanel), keyEquivalent: "")
         menu.addItem(withTitle: "Choose File…", action: #selector(chooseFile), keyEquivalent: "o")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(settings), keyEquivalent: ",")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit FileOrbit", action: #selector(quit), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit \(FileOrbitRuntime.displayName)", action: #selector(quit), keyEquivalent: "q")
         for entry in menu.items { entry.target = self }
         item.menu = menu; statusItem = item
+        if FileOrbitRuntime.isPreview {
+            let mainMenu = NSMenu()
+            let application = NSMenuItem(title: FileOrbitRuntime.displayName, action: nil, keyEquivalent: "")
+            application.submenu = menu.copy() as? NSMenu
+            mainMenu.addItem(application)
+            NSApp.mainMenu = mainMenu
+        }
+    }
+    @objc private func previewAppearance(_ sender: NSMenuItem) {
+        guard FileOrbitRuntime.isPreview else { return }
+        NSApp.appearance = sender.tag == 1 ? NSAppearance(named: .aqua) : sender.tag == 2 ? NSAppearance(named: .darkAqua) : nil
+        showPanel(nearPointer: false)
     }
     @objc private func openPanel() { model.refresh(); showPanel(nearPointer: false) }
     @objc private func chooseFile() { showPanel(nearPointer: false); model.chooseFile() }
@@ -84,25 +146,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     private func showPanel(nearPointer: Bool) {
         if panel == nil {
-            let created = OrbitPanel(contentRect: NSRect(x: 0, y: 0, width: 528, height: 668), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-            created.contentView = NSHostingView(rootView: OrbitView(model: model))
-            created.isOpaque = false; created.backgroundColor = .clear; created.hasShadow = true
+            let created = OrbitPanel(contentRect: NSRect(x: 0, y: 0, width: OrbitLayout.canvasSize.width, height: OrbitLayout.canvasSize.height), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            let hosting = NSHostingView(rootView: OrbitView(model: model))
+            hosting.sizingOptions = []
+            hosting.safeAreaRegions = []
+            created.contentView = hosting
+            created.isOpaque = false; created.backgroundColor = .clear; created.hasShadow = false
             created.level = .floating; created.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             created.isReleasedWhenClosed = false; created.hidesOnDeactivate = false
             created.isMovableByWindowBackground = false
-            created.title = "FileOrbit"
+            created.title = FileOrbitRuntime.displayName
             panel = created
         }
         guard let panel else { return }
         let pointer = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(pointer) } ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        var origin = CGPoint(x: visible.midX - panel.frame.width / 2, y: visible.midY - panel.frame.height / 2)
-        if nearPointer { origin = CGPoint(x: pointer.x - panel.frame.width / 2, y: pointer.y - panel.frame.height / 2) }
-        origin.x = min(max(origin.x, visible.minX + 12), visible.maxX - panel.frame.width - 12)
-        origin.y = min(max(origin.y, visible.minY + 12), visible.maxY - panel.frame.height - 12)
+        let origin = OrbitPanelPlacement.origin(size: panel.frame.size, visibleFrame: visible, anchor: nearPointer ? pointer : nil)
         panel.setFrameOrigin(origin)
         panel.makeKeyAndOrderFront(nil)
+        FileOrbitRuntime.recordPreview("Panel shown")
         NSApp.activate(ignoringOtherApps: true)
     }
     private func showSettings() {
@@ -117,6 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func applicationWillTerminate(_ notification: Notification) {
         if let outsideClick { NSEvent.removeMonitor(outsideClick) }
+        if let panelKeyboard { NSEvent.removeMonitor(panelKeyboard) }
         if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
     }
 }
