@@ -1,6 +1,16 @@
 # Verification record — October 24, 2026
 
-## 0.4.0-preview.1 installed candidate — October 24, 2026
+## Final 0.4.0-preview.1 candidate — October 24, 2026
+
+The final package was rebuilt from application source commit `16b2e29f58115eeefdae3a511113117f15c0f6ac` after the OCR scheduling fix below. Later documentation and Xcode Debug configuration changes do not affect this SwiftPM release executable.
+
+- **196 source tests in 33 suites passed**, zero failures, 6.354 seconds, with warnings-as-errors and the real local engines. This includes six concurrent real OCR inspections.
+- **29 extracted-package checks passed, zero skips**, 52.318 seconds on the first final-package run. Seven package-verifier regression tests also passed.
+- **Installation integrity:** `/Applications/FileOrbit.app` passed strict recursive signature verification and matched the tested GUI SHA-256 `6fbf9c346d08e7c8e9b2d924418c5ce5fedbeac59c0762884f40728b55d06af3`. Archive SHA-256: `a9d97beab94aba890e0cae2a76ff899a3fa9cae6377042d7c71f37d8a1d043df`.
+- **Cloud OCR regression:** [run 40164839149](https://github.com/nikhilsainethi/FileOrbit/actions/runs/40164839149) passed source tests, packaged-app checks and the full Xcode Release build with emitted App Intents metadata. Its final Debug preview step failed because the app built both architectures while its package dependency built only the active architecture. Debug now uses the active architecture consistently and disables optimization for previews. The corrected [full workflow passed](https://github.com/nikhilsainethi/FileOrbit/actions/runs/40165356299) at `87484e8b2ab47809752a559f516fb5c0cbd62b18`, including the Debug preview scenes. Compilation does not certify interactive Xcode canvas rendering or Shortcuts/Spotlight discovery.
+- **Final installed interactions:** pending the physical check after the rebuilt binary's existing Accessibility permission was refreshed and the app relaunched.
+
+## Initial 0.4 candidate — October 24, 2026
 
 The user approved the isolated 0.4 preview for installation and publication. The production candidate was built from application source commit `cb0884f6d2650e19381320cc4adaff544cb04b33`, verified as an extracted archive, and installed at `/Applications/FileOrbit.app`. Release-documentation and CI-only changes do not change the installed executable.
 
@@ -20,7 +30,7 @@ The user approved the isolated 0.4 preview for installation and publication. The
 
 The first clean macOS 26.6.2/Xcode 26.2 runs compiled successfully but stalled during concurrent OCR tests. A bounded diagnostic run captured all three cooperative workers inside synchronous Vision calls: two waiting on Vision's serial detector queue and one waiting in TextRecognition. The main thread was idle. That run failed on the watchdog deadline; it was not treated as a passing test run.
 
-`NeuralProcessingActor` now uses a shared serial Dispatch executor so its blocking Vision requests do not occupy Swift's cooperative pool. Actor isolation, cancellation checks, original-file preservation and reviewed export remain unchanged. A new regression starts six real OCR inspections concurrently and checks their detections and source integrity. The local suite passed **196 tests in 33 suites**, 6.354 seconds, with warnings-as-errors. The cloud rerun remains the acceptance check for the runner-specific stall; see the linked workflow. The installed-build evidence above predates this executor fix and must be rechecked on the rebuilt candidate before publication.
+`NeuralProcessingActor` now uses a shared serial Dispatch executor so its blocking Vision requests do not occupy Swift's cooperative pool. Actor isolation, cancellation checks, original-file preservation and reviewed export remain unchanged. A new regression starts six real OCR inspections concurrently and checks their detections and source integrity. The local suite passed **196 tests in 33 suites**, 6.354 seconds, with warnings-as-errors. The subsequent cloud run passed both the source tests and packaged OCR checks. The initial installed-build evidence below the final-candidate record predates this executor fix; the final-candidate record separately identifies the rebuilt binary and its checks.
 
 The earlier isolated preview record is in [COMMERCIAL_VERIFICATION.md](COMMERCIAL_VERIFICATION.md). It records local neural export, detected boxes, actual lens measurements, and the initial Apple OCR failure followed by an unchanged-archive retry. The production package run above passed without that retry; clean-machine OCR behavior still needs broader coverage.
 
