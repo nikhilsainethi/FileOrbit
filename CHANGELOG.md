@@ -23,3 +23,12 @@ First public preview for Apple Silicon Macs.
 - Include source tests, packaged-app validation, dependency notices and installation/troubleshooting documentation.
 
 This is an ad-hoc-signed preview, without Developer ID signing or Apple notarization. The download is for Apple Silicon. macOS 15 is the deployment target; see the [verification record](docs/TESTING.md) for platforms actually tested. Editable PDF-to-Office, OCR, editing, animation and batch conversion are not included.
+
+## 0.4 development preview (unreleased)
+
+- Local Vision subject isolation and reviewed PII suggestions with irreversible raster replacement.
+- Opt-in Liquid Notch stash/pipelines and guarded clipboard/screenshot orb.
+- Real encoded split-loupe/SSIM, developer payloads, app icon assets and color cards.
+- Onboarding sandbox, configurable drag modifiers and measured local impact dashboard.
+- Swift 6 language mode and warnings-as-errors builds; App Intents source and full-Xcode project (registration verification pending).
+- Public installation/publication still requires preview acceptance and release verification.

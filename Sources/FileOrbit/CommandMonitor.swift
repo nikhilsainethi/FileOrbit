@@ -51,7 +51,7 @@ final class CommandMonitor {
         ShortcutDiagnostics.record("gesture event=\(gestureEvent) recognized=\(recognized)")
         if recognized { onGesture?() }
     }
-    deinit {
+    isolated deinit {
         if let global { NSEvent.removeMonitor(global) }
         if let local { NSEvent.removeMonitor(local) }
     }

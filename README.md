@@ -1,3 +1,5 @@
+> Development branch: the new 0.4 local preview is documented in [Commercial Preview](docs/COMMERCIAL_PREVIEW.md). The published download remains 0.3 until the new preview is approved and release gates pass.
+
 # FileOrbit
 
 **Select a file. Tap ⌘ twice. Convert it.**

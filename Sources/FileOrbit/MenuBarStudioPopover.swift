@@ -56,6 +56,7 @@ struct MenuBarStudioPopover: View {
                     Text("Dark").tag("dark")
                 }.labelsHidden().pickerStyle(.segmented).frame(width: 205).controlSize(.small)
             }
+            ImpactBentoView(store: .shared)
             Divider().opacity(0.5)
             HStack {
                 Text("Recent files").font(.system(size: 11, weight: .semibold))

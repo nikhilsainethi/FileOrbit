@@ -67,6 +67,7 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :FileOrbitPreview bool true" "$PLIST"
 # Do not register a second handler for the user's documents.
 /usr/libexec/PlistBuddy -c "Delete :CFBundleDocumentTypes" "$PLIST"
+/usr/libexec/PlistBuddy -c "Delete :NSServices" "$PLIST"
 plutil -lint "$PLIST"
 codesign --force --sign - --entitlements "$ROOT/Resources/Entitlements.plist" "$APP"
 codesign --verify --deep --strict "$APP"

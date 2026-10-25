@@ -204,7 +204,7 @@ enum PDFDocumentTools {
 
 /// Writes only losslessly compressed RGB pixels and page geometry. It never imports source PDF
 /// objects, text, annotations, attachments, actions, or metadata, including on unmarked pages.
-private final class RasterPDFWriter {
+final class RasterPDFWriter {
     private let file: FileHandle
     private let pageCount: Int
     private var offsets: [UInt64]

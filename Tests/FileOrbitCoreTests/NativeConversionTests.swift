@@ -123,9 +123,9 @@ final class NativeConversionTests {
         try Data("new".utf8).write(to: staged)
         let result = try OutputPublisher.publish(files: [staged], source: source, directory: directory, compressed: false)
         #expect(result[0].lastPathComponent == "résumé '$(oops)-converted 2.jpg")
-        #expect(try String(contentsOf: source) == "original")
-        #expect(try String(contentsOf: existing) == "existing")
-        #expect(try String(contentsOf: result[0]) == "new")
+        #expect(try String(contentsOf: source, encoding: .utf8) == "original")
+        #expect(try String(contentsOf: existing, encoding: .utf8) == "existing")
+        #expect(try String(contentsOf: result[0], encoding: .utf8) == "new")
     }
 
     @Test func testPublisherPlacesMultiplePagesInDistinctFolder() throws {

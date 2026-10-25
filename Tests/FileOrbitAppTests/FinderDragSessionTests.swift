@@ -1,7 +1,16 @@
 import Testing
+import AppKit
 @testable import FileOrbit
 
-struct FinderDragSessionTests {
+@MainActor struct FinderDragSessionTests {
+    @Test func mouseDragNeverReadsKeyboardOnlyProperties() throws {
+        let mouse = try #require(NSEvent.mouseEvent(with: .leftMouseDragged, location: .zero, modifierFlags: [], timestamp: 1, windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        #expect(FinderDragKey.spaceState(for: mouse) == nil)
+        let down = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 1, windowNumber: 0, context: nil, characters: " ", charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49))
+        let up = try #require(NSEvent.keyEvent(with: .keyUp, location: .zero, modifierFlags: [], timestamp: 2, windowNumber: 0, context: nil, characters: " ", charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49))
+        #expect(FinderDragKey.spaceState(for: down) == true)
+        #expect(FinderDragKey.spaceState(for: up) == false)
+    }
     @Test func previousDragCannotBeReusedByShiftSelection() {
         var session = FinderDragSession()
         session.mouseDown(pasteboardChange: 12)

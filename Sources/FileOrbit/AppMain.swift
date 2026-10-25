@@ -6,7 +6,7 @@ import Quartz
 import Combine
 
 enum FileOrbitRuntime {
-    static var isPreview: Bool { Bundle.main.object(forInfoDictionaryKey: "FileOrbitPreview") as? Bool == true }
+    static var isPreview: Bool { Bundle.main.object(forInfoDictionaryKey: "FileOrbitPreview") as? Bool == true || ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" }
     private static let previewLogger = Logger(subsystem: "io.fileorbit.preview", category: "Panel")
     static func recordPreview(_ event: String) { if isPreview { previewLogger.notice("\(event, privacy: .public)") } }
     static func appearance(for value: String) -> NSAppearance? {
@@ -41,6 +41,9 @@ final class OrbitPanel: NSPanel {
     private let hud = JobHUDModel()
     private let monitor = CommandMonitor()
     private let dragMonitor = FinderDragMonitor()
+    private lazy var commercial = CommercialCoordinator(model: model)
+    private var onboarding: OnboardingSandboxWindow?
+    private var loupeDemoWindow: NSWindow?
     private var statusItem: NSStatusItem?
     private var statusMenu: NSMenu?
     private var studio: NSPopover?
@@ -62,37 +65,54 @@ final class OrbitPanel: NSPanel {
         NSApp.appearance = FileOrbitRuntime.appearance(for: StudioPreferences.shared.appearance)
         NSApp.setActivationPolicy(FileOrbitRuntime.isPreview || CommandLine.arguments.contains("--ui-test") ? .regular : .accessory)
         createStatusItem()
+        commercial.start()
+        model.onNotchDemo = { [weak self] in self?.commercial.notch.showDemo() }
+        model.onOrbDemo = { [weak self] in self?.commercial.showOrbDemo() }
+        model.onLoupeDemo = { [weak self] in self?.showLoupeDemo() }
+        model.onOnboarding = { [weak self] in self?.showOnboarding() }
+        if !FileOrbitRuntime.isPreview { NSApp.servicesProvider = self }
         model.onSettings = { [weak self] in self?.showSettings() }
-        model.onDismiss = { [weak self] in self?.panel?.orderOut(nil) }
+        model.onDismiss = { [weak self] in self?.model.showLoupe(false); self?.model.isDraggingFile = false; self?.panel?.orderOut(nil) }
         model.onShelf = { [weak self] urls in self?.showShelf(urls) }
         model.onRoute = { [weak self] command, url in self?.route(command, url: url) }
         model.onRedact = { [weak self] url in self?.showRedaction(url) }
         model.onRunStarted = { [weak self] input in
             guard let self else { return }
             self.hud.setRunning(input: input); self.hud.onCancel = { [weak self] in self?.model.cancel() }; self.showHUD()
+            guard !self.model.neuralBusy else { return }
             let generation = UUID(); self.hideGeneration = generation
             DispatchQueue.main.asyncAfter(deadline: .now() + (NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.18)) {
                 guard self.hideGeneration == generation else { return }; self.panel?.orderOut(nil)
             }
         }
         model.onRunCompleted = { [weak self] input, result in
-            guard let self else { return }; self.hud.complete(input: input, result: result); self.showHUD()
+            guard let self else { return }
+            self.hud.complete(input: input, result: result)
+            let id = UUID(); self.hud.impactID = id
+            ImpactStore.shared.record(id: id, category: self.model.impactCategory, inputBytes: result.inputBytes, outputBytes: result.outputBytes)
+            self.showHUD()
         }
         model.onRunFailed = { [weak self] error in
             guard let self else { return }; self.hud.fail(error); self.model.errorMessage = nil; self.showHUD()
         }
         hud.onQuickLook = { [weak self] in if let url = self?.hud.result?.outputURLs.first { self?.showQuickLook(url) } }
-        shelf.onCompleted = { input, result in JobHistory.shared.record(input: input, result: result) }
+        shelf.onCompleted = { [weak self] input, result in
+            JobHistory.shared.record(input: input, result: result)
+            ImpactStore.shared.record(id: UUID(), category: self?.shelf.mode == .compress ? .compression : .conversion, inputBytes: result.inputBytes, outputBytes: result.outputBytes)
+        }
         shelf.$isPinned.dropFirst().sink { [weak self] pinned in self?.shelfPanel?.level = pinned ? .floating : .normal }.store(in: &subscriptions)
         StudioPreferences.shared.$appearance.dropFirst().sink { value in NSApp.appearance = FileOrbitRuntime.appearance(for: value) }.store(in: &subscriptions)
         monitor.onGesture = { [weak self] in self?.handleFinderGesture() }
+        dragMonitor.onDragMoved = { [weak self] point in self?.commercial.notch.dragMoved(at: point) }
+        dragMonitor.onDragBegan = { [weak self] urls, point in self?.commercial.notch.dragBegan(urls: urls, at: point) }
+        dragMonitor.onSpace = { [weak self] held in self?.model.showLoupe(held) }
         dragMonitor.onReveal = { [weak self] urls, mode in
             guard let self, self.model.stage != .working, let first = urls.first else { return }
             self.model.select(first); self.model.setMode(mode); self.model.isDraggingFile = true
             self.showPanel(nearPointer: true, activate: false)
         }
         dragMonitor.onMode = { [weak self] mode in self?.model.setMode(mode) }
-        dragMonitor.onEnd = { [weak self] in self?.model.isDraggingFile = false }
+        dragMonitor.onEnd = { [weak self] in self?.model.isDraggingFile = false; self?.commercial.notch.dragEnded() }
         if !FileOrbitRuntime.isPreview { monitor.start(); dragMonitor.start() }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in
@@ -104,8 +124,11 @@ final class OrbitPanel: NSPanel {
             guard let self, self.model.stage != .working, !FileOrbitRuntime.isPreview else { return }
             self.panel?.orderOut(nil)
         }
-        panelKeyboard = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+        panelKeyboard = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .flagsChanged]) { [weak self] event in
             guard let self else { return event }
+            if self.model.isDraggingFile, let held = FinderDragKey.spaceState(for: event) {
+                self.model.showLoupe(held); return nil
+            }
             if event.type == .flagsChanged, event.window === self.panel || self.panel?.isKeyWindow == true {
                 self.model.updateModifiers(event.modifierFlags); return event
             }
@@ -122,7 +145,7 @@ final class OrbitPanel: NSPanel {
         if let index = CommandLine.arguments.firstIndex(of: "--open"), CommandLine.arguments.indices.contains(index + 1) {
             model.select(URL(fileURLWithPath: CommandLine.arguments[index + 1])); showPanel(nearPointer: false)
         } else if FileOrbitRuntime.isPreview || !UserDefaults.standard.bool(forKey: "FileOrbit.hasLaunched") {
-            UserDefaults.standard.set(true, forKey: "FileOrbit.hasLaunched"); showPanel(nearPointer: false)
+            UserDefaults.standard.set(true, forKey: "FileOrbit.hasLaunched"); showOnboarding()
         }
     }
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -153,7 +176,11 @@ final class OrbitPanel: NSPanel {
             for (title, action, key) in [("Undo", Selector(("undo:")), "z"), ("Cut", #selector(NSText.cut(_:)), "x"), ("Copy", #selector(NSText.copy(_:)), "c"), ("Paste", #selector(NSText.paste(_:)), "v"), ("Select All", #selector(NSText.selectAll(_:)), "a")] {
                 editMenu.addItem(withTitle: title, action: action, keyEquivalent: key)
             }
-            edit.submenu = editMenu; main.addItem(edit); NSApp.mainMenu = main
+            edit.submenu = editMenu; main.addItem(edit)
+            let windowItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: ""), windowMenu = NSMenu(title: "Window")
+            windowMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+            windowItem.submenu = windowMenu; main.addItem(windowItem)
+            NSApp.windowsMenu = windowMenu; NSApp.mainMenu = main
         }
     }
     @objc private func statusClicked() {
@@ -279,7 +306,7 @@ final class OrbitPanel: NSPanel {
     private func route(_ command: OrbitCommand, url: URL) {
         switch command {
         case .copyPath:
-            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url.path, forType: .string); panel?.orderOut(nil)
+            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(url.path, forType: .string); NSPasteboard.general.setString("FileOrbit", forType: FileOrbitClipboard.marker); panel?.orderOut(nil)
         case .airDrop:
             guard let sharing = NSSharingService(named: .sendViaAirDrop), sharing.canPerform(withItems: [url]) else { model.errorMessage = "AirDrop is not available for this file on this Mac."; return }
             sharing.perform(withItems: [url]); panel?.orderOut(nil)
@@ -290,6 +317,28 @@ final class OrbitPanel: NSPanel {
             }
         default: break
         }
+    }
+    @objc func openFileOrbitService(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        let urls = (pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+        guard !urls.isEmpty else { error.pointee = "Select a file in Finder."; return }
+        application(NSApp, open: urls)
+    }
+
+    private func showLoupeDemo() {
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 400, height: 420), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.title = "FileOrbit · Local quality preview"; window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: QualityPreviewStage())
+        loupeDemoWindow?.close(); loupeDemoWindow = window; window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
+    private func showOnboarding() {
+        if onboarding == nil {
+            onboarding = OnboardingSandboxWindow(onSample: { [weak self] url, directory, dragging in
+                guard let self, self.model.stage != .working else { return }
+                self.model.select(url); self.model.outputDirectory = directory; self.model.isDraggingFile = dragging
+                self.showPanel(nearPointer: false, activate: !dragging)
+            }, onNotchDemo: { [weak self] in self?.commercial.notch.showDemo() }, onSettings: { [weak self] in self?.showSettings() })
+        }
+        onboarding?.show()
     }
     private func showSettings() {
         if settingsWindow == nil {
@@ -303,6 +352,7 @@ final class OrbitPanel: NSPanel {
         if let closing = notification.object as? NSWindow, closing === redactionWindow { redactionEditor?.cancel() }
     }
     func applicationWillTerminate(_ notification: Notification) {
+        commercial.stop()
         if let outsideClick { NSEvent.removeMonitor(outsideClick) }; if let panelKeyboard { NSEvent.removeMonitor(panelKeyboard) }
         if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }; dragMonitor.stop()
     }

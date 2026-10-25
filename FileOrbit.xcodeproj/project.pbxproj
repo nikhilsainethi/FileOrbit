@@ -1,0 +1,29 @@
+// !$*UTF8*$!
+{
+ archiveVersion = 1;
+ classes = {};
+ objectVersion = 77;
+ objects = {
+  A00000000000000000000001 = {isa = PBXProject; attributes = {LastUpgradeCheck = 2620;}; buildConfigurationList = A00000000000000000000002; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = A00000000000000000000003; packageReferences = (A00000000000000000000010); preferredProjectObjectVersion = 77; productRefGroup = A00000000000000000000004; projectDirPath = ""; projectRoot = ""; targets = (A00000000000000000000005);};
+  A00000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000020, A00000000000000000000021); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+  A00000000000000000000003 = {isa = PBXGroup; children = (A00000000000000000000006, A00000000000000000000004, A00000000000000000000013); sourceTree = "<group>";};
+  A00000000000000000000004 = {isa = PBXGroup; children = (A00000000000000000000007); name = Products; sourceTree = "<group>";};
+  A00000000000000000000005 = {isa = PBXNativeTarget; buildConfigurationList = A00000000000000000000008; buildPhases = (A00000000000000000000009, A0000000000000000000000A, A0000000000000000000000B); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (A00000000000000000000006); name = FileOrbit; packageProductDependencies = (A00000000000000000000011); productName = FileOrbit; productReference = A00000000000000000000007; productType = "com.apple.product-type.application";};
+  A00000000000000000000006 = {isa = PBXFileSystemSynchronizedRootGroup; path = Sources/FileOrbit; sourceTree = "<group>";};
+  A00000000000000000000007 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FileOrbit.app; sourceTree = BUILT_PRODUCTS_DIR;};
+  A00000000000000000000008 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000022, A00000000000000000000023); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+  A00000000000000000000009 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
+  A0000000000000000000000A = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000012); runOnlyForDeploymentPostprocessing = 0;};
+  A0000000000000000000000B = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000014); runOnlyForDeploymentPostprocessing = 0;};
+  A00000000000000000000010 = {isa = XCLocalSwiftPackageReference; relativePath = .;};
+  A00000000000000000000011 = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000010; productName = FileOrbitCore;};
+  A00000000000000000000012 = {isa = PBXBuildFile; productRef = A00000000000000000000011;};
+  A00000000000000000000013 = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Resources/AppIcon.icns; sourceTree = "<group>";};
+  A00000000000000000000014 = {isa = PBXBuildFile; fileRef = A00000000000000000000013;};
+  A00000000000000000000020 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {MACOSX_DEPLOYMENT_TARGET = 15.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;};};
+  A00000000000000000000021 = {isa = XCBuildConfiguration; name = Release; buildSettings = {MACOSX_DEPLOYMENT_TARGET = 15.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;};};
+  A00000000000000000000022 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {PRODUCT_NAME = FileOrbit; PRODUCT_BUNDLE_IDENTIFIER = io.fileorbit.mac; INFOPLIST_FILE = Resources/Info.plist; CODE_SIGN_ENTITLEMENTS = Resources/Entitlements.plist; CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; ENABLE_HARDENED_RUNTIME = YES; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG FILEORBIT_XCODE_PREVIEWS"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";};};
+  A00000000000000000000023 = {isa = XCBuildConfiguration; name = Release; buildSettings = {PRODUCT_NAME = FileOrbit; PRODUCT_BUNDLE_IDENTIFIER = io.fileorbit.mac; INFOPLIST_FILE = Resources/Info.plist; CODE_SIGN_ENTITLEMENTS = Resources/Entitlements.plist; CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; ENABLE_HARDENED_RUNTIME = YES; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_OPTIMIZATION_LEVEL = "-O"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";};};
+ };
+ rootObject = A00000000000000000000001;
+}
