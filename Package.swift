@@ -12,5 +12,5 @@ let package = Package(
         .testTarget(name: "FileOrbitCoreTests", dependencies: ["FileOrbitCore"]),
         .testTarget(name: "FileOrbitAppTests", dependencies: ["FileOrbit", "FileOrbitCore"])
     ],
-    swiftLanguageModes: [.v5]
+    swiftLanguageModes: [.v6]
 )

@@ -4,7 +4,7 @@ import SwiftUI
 /// Shared optical-glass colors. Labels are opaque and never blurred with the backdrop.
 enum OrbitPalette {
     static func primaryText(for scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.94, green: 0.95, blue: 0.97) : Color(red: 0.12, green: 0.15, blue: 0.18)
+        scheme == .dark ? Color(red: 0.94, green: 0.95, blue: 0.97) : Color(red: 10.0/255, green: 92.0/255, blue: 96.0/255)
     }
     static func secondaryText(for scheme: ColorScheme) -> Color {
         scheme == .dark ? Color(red: 0.69, green: 0.74, blue: 0.78) : Color(red: 0.36, green: 0.42, blue: 0.45)
@@ -13,10 +13,10 @@ enum OrbitPalette {
         scheme == .dark ? Color(red: 0.65, green: 0.98, blue: 0.94) : Color(red: 0.04, green: 0.36, blue: 0.38)
     }
     static func accent(for scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.16, green: 0.85, blue: 0.76) : Color(red: 0.08, green: 0.58, blue: 0.62)
+        scheme == .dark ? Color(red: 0.14, green: 0.88, blue: 0.78) : Color(red: 30.0/255, green: 200.0/255, blue: 184.0/255)
     }
     static func baseWash(for scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.09, green: 0.10, blue: 0.13).opacity(0.68) : .white.opacity(0.62)
+        scheme == .dark ? Color(red: 0.07, green: 0.08, blue: 0.11).opacity(0.72) : Color(white: 0.99).opacity(0.64)
     }
     static func opaqueSurface(for scheme: ColorScheme) -> Color {
         scheme == .dark ? Color(red: 0.12, green: 0.14, blue: 0.17) : Color(red: 0.96, green: 0.97, blue: 0.97)
@@ -43,18 +43,15 @@ struct LiquidGlassSurface<S: Shape>: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
 
-    private var rim: LinearGradient {
-        let colors: [Color] = scheme == .dark
-            ? [.white.opacity(0.34), .white.opacity(0.14), .white.opacity(0.06)]
-            : [.white.opacity(0.95), .white.opacity(0.35), .black.opacity(0.08)]
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    private var rim: AngularGradient {
+        let colors: [Gradient.Stop] = scheme == .dark
+            ? [.init(color: .white.opacity(0.32), location: 0), .init(color: .white.opacity(0.08), location: 0.5), .init(color: .white.opacity(0.32), location: 1)]
+            : [.init(color: .white.opacity(0.95), location: 0), .init(color: .white.opacity(0.30), location: 0.375), .init(color: .black.opacity(0.10), location: 0.75), .init(color: .white.opacity(0.95), location: 1)]
+        return AngularGradient(gradient: Gradient(stops: colors), center: .center, startAngle: .degrees(-90), endAngle: .degrees(270))
     }
 
-    private var activeTint: LinearGradient {
-        let colors: [Color] = scheme == .dark
-            ? [Color(red: 0.16, green: 0.85, blue: 0.76).opacity(0.32), Color(red: 0.05, green: 0.46, blue: 0.43).opacity(0.24)]
-            : [Color(red: 0.12, green: 0.74, blue: 0.68).opacity(0.24), Color(red: 0.08, green: 0.58, blue: 0.62).opacity(0.38)]
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    private var activeTint: RadialGradient {
+        RadialGradient(colors: [OrbitPalette.accent(for: scheme).opacity(scheme == .dark ? 0.28 : 0.26), OrbitPalette.accent(for: scheme).opacity(0.04)], center: .topLeading, startRadius: 0, endRadius: 240)
     }
 
     private var activeRim: LinearGradient {

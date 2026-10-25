@@ -168,6 +168,10 @@ final class JobHUDModel: ObservableObject {
     var onCancel: (() -> Void)?
     private var undoRecord: OutputUndoRecord?
     private var generation = UUID()
+    var impactID: UUID?
+    private let impactStore: ImpactStore
+    var undoExecutor: @Sendable (OutputUndoRecord) throws -> Void = { try $0.undo() }
+    init(impactStore: ImpactStore = .shared) { self.impactStore = impactStore }
 
     var title: String {
         switch phase {
@@ -187,10 +191,12 @@ final class JobHUDModel: ObservableObject {
         let after = ByteCountFormatter.string(fromByteCount: result.outputBytes, countStyle: .file)
         let savings = result.inputBytes > 0 && result.outputBytes < result.inputBytes
             ? " · \(Int((1 - Double(result.outputBytes) / Double(result.inputBytes)) * 100))% smaller" : ""
+        if let note = result.note, note.hasPrefix("File saved.") { return note }
         return "\(before) → \(after)\(savings)"
     }
 
     func setRunning(input: URL?, progress: Double? = nil) {
+        impactID = nil
         generation = UUID(); self.input = input; self.progress = progress.map { min(1, max(0, $0)) }
         result = nil; error = nil; undoRecord = nil; canUndo = false; isUndoing = false; isCancelling = false; phase = .running
     }
@@ -198,7 +204,7 @@ final class JobHUDModel: ObservableObject {
         progress = total > 0 ? min(1, max(0, Double(completed) / Double(total))) : nil
     }
     func complete(input: URL, result: ConversionResult) {
-        let snapshot = try? OutputUndoRecord.snapshot(source: input, outputs: result.outputURLs)
+        let snapshot = try? OutputUndoRecord.snapshot(source: input, outputs: result.undoURLs ?? result.outputURLs)
         let id = UUID(); generation = id
         self.input = input; self.result = result; phase = .complete; progress = 1; error = nil
         canUndo = false; undoRecord = nil; isCancelling = false; isUndoing = false
@@ -227,18 +233,22 @@ final class JobHUDModel: ObservableObject {
         guard let urls = result?.outputURLs, !urls.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects(urls as [NSURL])
+        NSPasteboard.general.setString("FileOrbit", forType: FileOrbitClipboard.marker)
     }
     func undo() {
         if let onUndo { onUndo(); return }
         guard let undoRecord, canUndo, !isUndoing else { return }
         isUndoing = true; canUndo = false
-        let id = generation
+        let id = generation, undoneImpactID = impactID, store = impactStore, executor = undoExecutor
         Task { [weak self] in
-            let outcome = await Task.detached(priority: .utility) { Result { try undoRecord.undo() } }.value
+            let outcome = await Task.detached(priority: .utility) { Result { try executor(undoRecord) } }.value
+            if case .success = outcome, let undoneImpactID { store.undo(id: undoneImpactID) }
             guard let self, self.generation == id else { return }
             self.isUndoing = false; self.undoRecord = nil
             switch outcome {
-            case .success: self.phase = .undone
+            case .success:
+                self.phase = .undone
+                self.impactID = nil
             case .failure(let error): self.error = error.localizedDescription
             }
         }

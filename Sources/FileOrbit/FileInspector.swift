@@ -71,9 +71,10 @@ final class FileInspector: ObservableObject {
         let newRequest = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 160, height: 160), scale: NSScreen.main?.backingScaleFactor ?? 2, representationTypes: .thumbnail)
         request = newRequest
         QLThumbnailGenerator.shared.generateBestRepresentation(for: newRequest) { [weak self] representation, _ in
+            let pixels = representation?.cgImage
             Task { @MainActor [weak self] in
                 guard let self, self.generation == id else { return }
-                self.thumbnail = representation?.nsImage
+                self.thumbnail = pixels.map { NSImage(cgImage: $0, size: NSSize(width: $0.width, height: $0.height)) }
                 self.isLoading = false; self.request = nil
             }
         }

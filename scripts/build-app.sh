@@ -6,7 +6,7 @@ SCRATCH="${FILEORBIT_BUILD_DIR:-$ROOT/.build}"
 VENDOR="${FILEORBIT_VENDOR_DIR:-$ROOT/.build/vendor}"
 mkdir -p "$DEST"
 DEST="$(cd "$DEST" && pwd)"
-swift build --package-path "$ROOT" --scratch-path "$SCRATCH" -c release
+swift build --package-path "$ROOT" --scratch-path "$SCRATCH" -c release -Xswiftc -warnings-as-errors
 BIN="$(swift build --package-path "$ROOT" --scratch-path "$SCRATCH" -c release --show-bin-path)"
 # Stage outside cloud-backed Documents folders: File Provider can attach FinderInfo
 # metadata to new app bundles there before codesign runs.

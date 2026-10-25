@@ -37,8 +37,11 @@ public struct ConversionResult: Sendable {
     public let inputBytes: Int64
     public let outputBytes: Int64
     public let note: String?
-    public init(outputURLs: [URL], inputBytes: Int64, outputBytes: Int64, note: String? = nil) {
-        self.outputURLs = outputURLs; self.inputBytes = inputBytes; self.outputBytes = outputBytes; self.note = note
+    /// Exact generated regular-file inventory, captured inside private staging.
+    /// Used when outputURLs contains a directory such as an app icon asset set.
+    public let undoURLs: [URL]?
+    public init(outputURLs: [URL], inputBytes: Int64, outputBytes: Int64, note: String? = nil, undoURLs: [URL]? = nil) {
+        self.outputURLs = outputURLs; self.inputBytes = inputBytes; self.outputBytes = outputBytes; self.note = note; self.undoURLs = undoURLs
     }
 }
 

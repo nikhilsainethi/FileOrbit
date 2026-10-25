@@ -18,8 +18,8 @@ struct OrbitView: View {
         ZStack(alignment: .topLeading) {
             if model.input != nil {
                 radialContent
-                    .scaleEffect(model.stage == .working ? 0.12 : 1, anchor: UnitPoint(x: OrbitLayout.center.x / OrbitLayout.canvasSize.width, y: OrbitLayout.center.y / OrbitLayout.canvasSize.height))
-                    .opacity(model.stage == .working ? 0 : 1)
+                    .scaleEffect(model.stage == .working && !model.neuralBusy ? 0.12 : 1, anchor: UnitPoint(x: OrbitLayout.center.x / OrbitLayout.canvasSize.width, y: OrbitLayout.center.y / OrbitLayout.canvasSize.height))
+                    .opacity(model.stage == .working && !model.neuralBusy ? 0 : 1)
                     .animation(spring, value: model.stage)
             } else { welcome }
             if let hint = model.dependencyHint {
@@ -41,7 +41,7 @@ struct OrbitView: View {
             }
             .buttonStyle(.plain).help("Close · Escape").accessibilityLabel("Close FileOrbit")
             .position(x: OrbitLayout.closeFrame.midX, y: OrbitLayout.closeFrame.midY)
-            .opacity(model.stage == .working ? 0 : 1)
+            .opacity(model.stage == .working && !model.neuralBusy ? 0 : 1)
         }
         .frame(width: OrbitLayout.canvasSize.width, height: OrbitLayout.canvasSize.height)
         .foregroundStyle(OrbitPalette.primaryText(for: scheme))
@@ -79,7 +79,7 @@ struct OrbitView: View {
                 }
                 if let layout = model.parameterLayout {
                     ForEach(Array(model.parameters.enumerated()), id: \.element.id) { index, parameter in
-                        OrbitParameterSector(parameter: parameter, shape: layout.shape(index), angle: layout.angle(index), active: model.selectedParameterID == parameter.id) { model.run(parameter.operation) }
+                        OrbitParameterSector(parameter: parameter, shape: layout.shape(index), angle: layout.angle(index), active: model.selectedParameterID == parameter.id) { model.execute(parameter.command) }
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.94)))
                 }
@@ -92,7 +92,7 @@ struct OrbitView: View {
             .animation(spring, value: model.selectedActionID)
             .animation(spring, value: model.selectedParameterID)
             .animation(spring, value: model.parameterParentID)
-            OrbitHub(model: model, inspector: model.inspector)
+            OrbitLoupeHub(model: model)
                 .frame(width: 104, height: 104)
                 .position(x: OrbitLayout.center.x, y: OrbitLayout.center.y)
             if model.orbitActions.isEmpty {
@@ -149,6 +149,22 @@ struct OrbitView: View {
     }
 }
 
+private struct OrbitLoupeHub: View {
+    @ObservedObject var model: AppModel
+    var body: some View { OrbitLoupeOverlay(model: model, loupe: model.loupe) }
+}
+private struct OrbitLoupeOverlay: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var loupe: SplitLoupeModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        ZStack {
+            OrbitHub(model: model, inspector: model.inspector).frame(width: 104, height: 104)
+            if model.neuralBusy { NeuralHubShimmer().frame(width: 104, height: 104) }
+            if loupe.isVisible { SplitLoupePreviewView(model: loupe).transition(.scale(scale: 0.4).combined(with: .opacity)) }
+        }.animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: loupe.isVisible)
+    }
+}
 private struct OrbitModeTransition: ViewModifier {
     let angle: Double
     let opacity: Double
@@ -173,9 +189,10 @@ private struct OrbitActionSector: View {
                     Image(systemName: action.symbol).font(.system(size: 17, weight: .medium)).symbolRenderingMode(.hierarchical)
                         .symbolEffect(.bounce, options: .nonRepeating, isActive: active && !reduceMotion)
                     Text(action.title).font(.system(size: action.title.count > 8 ? 8.5 : 10, weight: active ? .bold : .semibold))
-                        .lineLimit(2).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(action.title.contains(" ") ? 2 : 1).minimumScaleFactor(0.8)
+                        .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(width: max(46, min(78, CGFloat(span) * 1.1)))
+                .frame(width: max(58, min(78, CGFloat(span) * 1.1)))
                 .foregroundStyle(active ? OrbitPalette.activeText(for: scheme) : OrbitPalette.primaryText(for: scheme))
                 .position(point)
             }

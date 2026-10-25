@@ -87,6 +87,11 @@ enum NativeConverter {
     }
 
     static func encode(_ image: CGImage, to url: URL, format: OutputFormat, quality: Double) throws {
+        try encodedData(image, format: format, quality: quality).write(to: url, options: .atomic)
+    }
+
+    /// Shared by final conversion and the loupe: identical codec options, actual encoded bytes.
+    static func encodedData(_ image: CGImage, format: OutputFormat, quality: Double) throws -> Data {
         let type: String
         switch format {
         case .jpg: type = UTType.jpeg.identifier
@@ -99,7 +104,8 @@ enum NativeConverter {
             throw ConversionError.unsupported("This Mac cannot encode \(format.rawValue.uppercased()) images.")
         }
         let prepared = format == .jpg ? try whiteBackground(image) : image
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, type as CFString, 1, nil) else {
+        let buffer = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(buffer, type as CFString, 1, nil) else {
             throw ConversionError.failed("Could not create the image output.")
         }
         var properties: [CFString: Any] = [kCGImagePropertyOrientation: 1]
@@ -107,12 +113,12 @@ enum NativeConverter {
         if format == .tiff { properties[kCGImagePropertyTIFFDictionary] = [kCGImagePropertyTIFFCompression: 5] }
         CGImageDestinationAddImage(destination, prepared, properties as CFDictionary)
         guard CGImageDestinationFinalize(destination),
-              let check = CGImageSourceCreateWithURL(url as CFURL, nil),
-              CGImageSourceGetCount(check) == 1,
+              let check = CGImageSourceCreateWithData(buffer, nil), CGImageSourceGetCount(check) == 1,
               let decoded = CGImageSourceCreateImageAtIndex(check, 0, nil),
               decoded.width == image.width, decoded.height == image.height else {
             throw ConversionError.failed("The encoded image failed validation. No output was saved.")
         }
+        return buffer as Data
     }
 
     static func whiteBackground(_ image: CGImage) throws -> CGImage {

@@ -6,16 +6,12 @@ enum OrbitMode: String, CaseIterable, Identifiable {
     case convert, modify, quickActions
     var id: String { rawValue }
     var title: String { switch self { case .convert: return "Convert"; case .modify: return "Modify"; case .quickActions: return "Quick Actions" } }
-    var key: String { switch self { case .convert: return "⇧"; case .modify: return "⌥"; case .quickActions: return "⌃" } }
-    static func fromModifiers(_ flags: NSEvent.ModifierFlags) -> OrbitMode? {
-        guard !flags.contains(.command) else { return nil }
-        if flags.contains(.control) { return .quickActions }
-        if flags.contains(.option) { return .modify }
-        if flags.contains(.shift) { return .convert }
-        return nil
-    }
+    @MainActor var key: String { ModifierPreferences.shared.key(for: self) }
+    @MainActor static func fromModifiers(_ flags: NSEvent.ModifierFlags) -> OrbitMode? { ModifierPreferences.shared.mode(for: flags) }
+
 }
 enum OrbitCommand: Equatable {
+    case liftSubject(SubjectOutput, copy: Bool), sanitize(SanitizeStyle), developer(DeveloperOperation)
     case file(FileOperation), redact, shelf, airDrop, copyPath, terminal
 }
 struct OrbitAction: Identifiable, Equatable {
@@ -38,9 +34,23 @@ struct OrbitParameter: Identifiable, Equatable {
     let id: String
     let title: String
     let subtitle: String
-    let operation: FileOperation
+    let command: OrbitCommand
+    var operation: FileOperation? { if case .file(let value) = command { return value }; return nil }
+    init(id: String, title: String, subtitle: String, operation: FileOperation) {
+        self.id = id; self.title = title; self.subtitle = subtitle; command = .file(operation)
+    }
+    init(id: String, title: String, subtitle: String, command: OrbitCommand) {
+        self.id = id; self.title = title; self.subtitle = subtitle; self.command = command
+    }
     static func options(for action: OrbitAction, kind: FileKind, pageCount: Int?) -> [OrbitParameter] {
         switch action.command {
+        case .liftSubject:
+            return [.init(id: "transparent", title: "Transparent", subtitle: "PNG with alpha", command: .liftSubject(.transparentPNG, copy: false)),
+                    .init(id: "sticker", title: "Copy Sticker", subtitle: "PNG to clipboard", command: .liftSubject(.transparentPNG, copy: true)),
+                    .init(id: "white", title: "White Studio", subtitle: "Opaque backdrop", command: .liftSubject(.whiteBackdrop, copy: false))]
+        case .sanitize:
+            return [.init(id: "frosted", title: "Frosted Glass", subtitle: "Review then remove", command: .sanitize(.frosted)),
+                    .init(id: "obsidian", title: "Solid Obsidian", subtitle: "Review then remove", command: .sanitize(.obsidian))]
         case .file(.compress):
             return [
                 .init(id: "gentle", title: "Light", subtitle: "Higher quality", operation: .compress(.gentle)),

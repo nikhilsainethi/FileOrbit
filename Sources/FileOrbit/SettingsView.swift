@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var loginEnabled = SMAppService.mainApp.status == .enabled
     @State private var settingsError: String?
     @ObservedObject private var preferences = StudioPreferences.shared
+    @ObservedObject private var spatial = SpatialPreferences.shared
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -53,6 +54,29 @@ struct SettingsView: View {
                             .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }.padding(12)
                 }
+                }
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Spatial companions", systemImage: "rectangle.topthird.inset.filled").font(.headline)
+                        Toggle("Liquid Notch during Finder file drags", isOn: $spatial.notchEnabled)
+                        Toggle("Show an orb for new clipboard images", isOn: $spatial.clipboardEnabled)
+                        Toggle("Show an orb for new screenshot files", isOn: $spatial.screenshotEnabled)
+                        Text("Optional, local observers. No clipboard history is saved. Sanitize always opens a review. Screenshot files stay unchanged; actions copy a new image.").font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        Picker("Pinned pipeline", selection: $spatial.favoritePipelineID) {
+                            ForEach(PinnedPipeline.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                        }
+                        HStack {
+                            Button("Preview Liquid Notch") { model.onNotchDemo?() }
+                            Button("Practice in sandbox") { model.onOnboarding?() }
+                        }
+                        if FileOrbitRuntime.isPreview {
+                            HStack {
+                                Button("Try clipboard orb") { model.onOrbDemo?() }
+                                Button("Preview quality loupe") { model.onLoupeDemo?() }
+                            }
+                            Text("Preview buttons use synthetic samples. Background observers stay off unless you enable them.").font(.system(size: 10)).foregroundStyle(.secondary)
+                        }
+                    }.font(.system(size: 12)).padding(12)
                 }
                 GroupBox {
                     VStack(alignment: .leading, spacing: 14) {

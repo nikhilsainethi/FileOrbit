@@ -19,8 +19,19 @@ final class AppModel: ObservableObject {
     @Published var selectedActionID: String?
     @Published var parameterParentID: String?
     @Published var selectedParameterID: String?
-    @Published var isDraggingFile = false
+    @Published var isDraggingFile = false { didSet { if !isDraggingFile { spaceHeld = false; loupe.hide() } } }
+    private var spaceHeld = false
+    var impactCategory: ImpactCategory = .conversion
+    var onOnboarding: (() -> Void)?
+    var onNotchDemo: (() -> Void)?
+    var onOrbDemo: (() -> Void)?
+    var onLoupeDemo: (() -> Void)?
     let inspector = FileInspector()
+    let loupe = SplitLoupeModel()
+    @Published var neuralBusy = false
+    var onSanitize: ((URL, SanitizeStyle) -> Void)?
+    var onCommercial: ((OrbitCommand, URL) -> Void)?
+    var outputDirectory: URL?
     let preferences = StudioPreferences.shared
     private var cancellation: CancellationToken?
     private var hoverTask: Task<Void, Never>?
@@ -30,6 +41,7 @@ final class AppModel: ObservableObject {
     private var subscriptions = Set<AnyCancellable>()
 
     init() {
+        ModifierPreferences.shared.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
         inspector.$metadataLoaded.dropFirst().sink { [weak self] ready in
             guard ready else { return }
             // Published sends before assignment; execute once the snapshot is installed.
@@ -54,12 +66,12 @@ final class AppModel: ObservableObject {
     var onRunFailed: ((Error) -> Void)?
 
     var inputSize: String { inspector.sizeText }
-    var dependencyHint: String? { input.flatMap { CapabilityCatalog.unavailableReason(for: $0, environment: environment) } }
+    var dependencyHint: String? { input.flatMap { DeveloperPayloadEngine.availableOperations(for: $0).isEmpty ? CapabilityCatalog.unavailableReason(for: $0, environment: environment) : nil } }
     static func bytes(_ count: Int64) -> String { ByteCountFormatter.string(fromByteCount: count, countStyle: .file) }
     var orbitActions: [OrbitAction] { orbitActions(for: mode) }
     func orbitActions(for targetMode: OrbitMode) -> [OrbitAction] {
         guard let input else { return [] }
-        let available: [OrbitAction]
+        var available: [OrbitAction]
         switch targetMode {
         case .convert:
             available = (actions.filter { if case .compress = $0.operation { return false }; return true }
@@ -73,6 +85,16 @@ final class AppModel: ObservableObject {
                 .init(id: "copy-path", title: "Copy Path", symbol: "link", subtitle: "Copy the file’s full path", command: .copyPath),
                 .init(id: "terminal", title: "Terminal", symbol: "terminal", subtitle: "Open the containing folder", command: .terminal)
             ]
+        }
+        let kind = FileKind.detect(input)
+        if targetMode == .modify && (kind == .image || kind == .pdf) {
+            if kind == .image { available.insert(.init(id: "lift-subject", title: "Lift Subject", symbol: "person.crop.rectangle", subtitle: "Isolate foreground locally", command: .liftSubject(.transparentPNG, copy: false)), at: 0) }
+            available.insert(.init(id: "sanitize", title: "Sanitize", symbol: "hand.raised.slash", subtitle: "Review detected private information", command: .sanitize(.obsidian)), at: 0)
+        }
+        if targetMode == .convert {
+            available += DeveloperPayloadEngine.availableOperations(for: input).map { operation in
+                OrbitAction(id: operation.id, title: input.pathExtension.lowercased() == "swift" ? operation.title + " template" : operation.title, symbol: operation.symbol, subtitle: input.pathExtension.lowercased() == "swift" ? "Generate placeholder values from the schema" : operation.subtitle, command: .developer(operation))
+            }
         }
         let lookup = Dictionary(uniqueKeysWithValues: available.map { ($0.id, $0) })
         return preferences.orderedIDs(available.map(\.id), mode: targetMode.rawValue).compactMap { lookup[$0] }
@@ -102,6 +124,7 @@ final class AppModel: ObservableObject {
         guard url.isFileURL, let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]), values.isRegularFile == true, values.isSymbolicLink != true else {
             selectionFailed("Choose a regular file. Folders and aliases are not conversion inputs."); return
         }
+        outputDirectory = nil
         input = url; errorMessage = nil; result = nil; stage = .ready; resetInteraction()
         refresh(); inspector.load(url)
     }
@@ -111,6 +134,7 @@ final class AppModel: ObservableObject {
         resetInteraction(); inspector.load(nil)
     }
     func resetInteraction() {
+        spaceHeld = false; loupe.hide()
         hoverTask?.cancel(); hoverTask = nil; hoverTargetID = nil; hoverStarted = nil
         selectedActionID = nil; parameterParentID = nil; selectedParameterID = nil; pendingActivationID = nil
     }
@@ -130,6 +154,7 @@ final class AppModel: ObservableObject {
     func updateModifiers(_ flags: NSEvent.ModifierFlags) { if let value = OrbitMode.fromModifiers(flags) { setMode(value) } }
     func hover(_ point: CGPoint?) {
         guard stage != .working else { return }
+        defer { if spaceHeld { refreshLoupe() } }
         guard let point else { hoverTask?.cancel(); hoverTargetID = nil; return }
         if let layout = parameterLayout, let index = layout.index(at: point, activeIndex: selectedParameterIndex) {
             boundaryChanged(from: selectedParameterID, to: parameters[index].id)
@@ -176,6 +201,8 @@ final class AppModel: ObservableObject {
         guard let input, stage != .working else { return }
         switch command {
         case .file(let operation): run(operation)
+        case .sanitize(let style): onSanitize?(input, style)
+        case .liftSubject, .developer: onCommercial?(command, input)
         case .redact: onRedact?(input)
         case .shelf: onShelf?([input])
         default: onRoute?(command, input)
@@ -191,7 +218,7 @@ final class AppModel: ObservableObject {
         }
     }
     func keyboardActivate() {
-        if let index = selectedParameterIndex { run(parameters[index].operation) }
+        if let index = selectedParameterIndex { execute(parameters[index].command) }
         else if let selectedAction { activate(selectedAction) }
         else if let first = orbitActions.first { selectedActionID = first.id }
     }
@@ -209,7 +236,7 @@ final class AppModel: ObservableObject {
             onShelf?(urls); return
         }
         let command: OrbitCommand?
-        if let layout = parameterLayout, let index = layout.index(at: point, activeIndex: selectedParameterIndex) { command = .file(parameters[index].operation) }
+        if let layout = parameterLayout, let index = layout.index(at: point, activeIndex: selectedParameterIndex) { command = parameters[index].command }
         else if let index = OrbitLayout.actionIndex(at: point, count: orbitActions.count, compressionLast: compressionLast, activeIndex: selectedActionIndex) { command = orbitActions[index].command }
         else { return }
         if input != urls[0] { select(urls[0]) }
@@ -218,11 +245,12 @@ final class AppModel: ObservableObject {
     func perform(_ action: FileAction) { activate(OrbitAction(action)) }
     func run(_ operation: FileOperation) {
         guard let input, stage != .working else { return }
+        if case .compress = operation { impactCategory = .compression } else if case .redactPDF = operation { impactCategory = .redaction } else { impactCategory = .conversion }
         hoverTask?.cancel()
         let token = CancellationToken(); cancellation = token
         stage = .working; errorMessage = nil; cancelling = false; result = nil
         onRunStarted?(input)
-        let request = ConversionRequest(input: input, operation: operation), env = environment
+        let request = ConversionRequest(input: input, operation: operation, outputDirectory: outputDirectory), env = environment
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let outcome = Result { try ConversionEngine(environment: env).run(request, cancellation: token) }
             DispatchQueue.main.async {
@@ -237,12 +265,33 @@ final class AppModel: ObservableObject {
             }
         }
     }
-    func cancel() { cancelling = true; cancellation?.cancel() }
+    func cancel() { cancelling = true; cancellation?.cancel(); commercialCancellation?.cancel() }
+    var commercialCancellation: CancellationToken?
+    func showLoupe(_ held: Bool) { spaceHeld = held; refreshLoupe() }
+    private func refreshLoupe() {
+        guard spaceHeld, isDraggingFile, let input else { loupe.hide(); return }
+        let command = selectedParameterIndex.map { parameters[$0].command } ?? selectedAction?.command
+        guard case .file(let operation) = command else { loupe.hide(); return }
+        loupe.show(input: input, operation: operation, environment: environment)
+    }
+    func beginCommercial(input: URL, neural: Bool) -> CancellationToken {
+        let token = CancellationToken(); commercialCancellation = token
+        result = nil; errorMessage = nil; stage = .working; neuralBusy = neural; cancelling = false; loupe.hide()
+        onRunStarted?(input); return token
+    }
+    func finishCommercial(input: URL, outcome: Result<ConversionResult, Error>) {
+        commercialCancellation = nil; neuralBusy = false; cancelling = false
+        switch outcome {
+        case .success(let result): self.result = result; stage = .result; onRunCompleted?(input, result)
+        case .failure(let error): stage = .ready; errorMessage = error.localizedDescription; onRunFailed?(error)
+        }
+    }
     func back() { guard stage != .working else { return }; stage = .ready; errorMessage = nil; resetInteraction() }
     func reveal() { if let result { NSWorkspace.shared.activateFileViewerSelecting(result.outputURLs) } }
     func requestAccessibility() {
         guard !FileOrbitRuntime.isPreview else { return }
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        // The SDK exports this immutable AX key as a mutable C global.
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") { NSWorkspace.shared.open(url) }
     }
