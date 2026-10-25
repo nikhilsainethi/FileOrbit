@@ -1,28 +1,26 @@
-> Development branch: the new 0.4 local preview is documented in [Commercial Preview](docs/COMMERCIAL_PREVIEW.md). The published download remains 0.3 until the new preview is approved and release gates pass.
-
 # FileOrbit
 
 **Select a file. Tap ⌘ twice. Convert it.**
 
-> **0.3 optical glass preview:** a compact native wheel with contextual presets, PDF tools, a batch shelf and Studio customization. This remains a preview release; see the verification record for tested configurations and remaining limits.
+> **0.4 preview:** local subject isolation and reviewed privacy removal, a drag-and-drop notch, a quality lens, developer tools and a practice sandbox. The native glass wheel follows your Mac’s appearance. See the [verification record](docs/TESTING.md) for tested configurations and remaining limits.
 
 FileOrbit is a native macOS menu-bar app that brings a glass conversion wheel to the file you selected in Finder. Convert images, PDFs and documents, or make a smaller copy—all on your Mac, without uploading the file or opening another file picker.
 
 <p>
-  <img src="docs/images/optical-wheel-light.jpg" alt="Optical glass preview with PDF export presets in Light mode" width="340">
-  <img src="docs/images/optical-wheel-dark.jpg" alt="Optical glass preview with emerald compression presets in Dark mode" width="340">
+  <img src="docs/images/wheel-040-light.png" alt="FileOrbit 0.4 image conversion wheel in Light mode" width="340">
+  <img src="docs/images/wheel-040-dark.png" alt="FileOrbit 0.4 glass wheel in Dark mode" width="340">
 </p>
 
-Screenshots show the 0.3 optical glass interface in Light and Dark appearances.
+Screenshots show the native 0.4 wheel in Light and Dark appearances.
 
-[Download the Apple Silicon preview](https://github.com/nikhilsainethi/FileOrbit/releases/download/v0.3.0-preview.1/FileOrbit-macOS-arm64.zip) · [Installation guide](docs/INSTALL.md) · [Release notes](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.3.0-preview.1)
+[Download the Apple Silicon preview](https://github.com/nikhilsainethi/FileOrbit/releases/download/v0.4.0-preview.1/FileOrbit-macOS-arm64.zip) · [Installation guide](docs/INSTALL.md) · [Release notes](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.4.0-preview.1)
 
 > **Preview release:** the download is ad hoc signed, but it is **not Developer ID signed or notarized by Apple**. macOS may block its first launch. Read the [first-launch instructions](docs/INSTALL.md#first-launch-and-macos-security) before installing. The binary is for Apple Silicon; macOS 15+ is the deployment target, and macOS 27.2 on Apple Silicon is the locally tested configuration. Older macOS versions and Intel builds still need verification.
 
 ## Get started
 
 1. Download and unzip `FileOrbit-macOS-arm64.zip`, then move **FileOrbit.app** to **Applications**.
-2. Open FileOrbit. In its Settings, enable the Finder shortcut in **System Settings → Privacy & Security → Accessibility**. On the tested macOS 27 build, this pane is called **Device Control and Data Access**.
+2. Open FileOrbit. Explore the practice sandbox, then in Settings enable the Finder shortcut in **System Settings → Privacy & Security → Accessibility**. On the tested macOS 27 build, this pane is called **Device Control and Data Access**. Quit and reopen FileOrbit after granting permission.
 3. In Finder, select one file. Press and release the same **⌘ key twice quickly**. Allow FileOrbit to control Finder when macOS asks; this lets it read your selection.
 4. Choose a format or **Compress** from the wheel. The result is saved beside the original, with a new name.
 
@@ -50,6 +48,18 @@ See the [installation guide](docs/INSTALL.md) for permissions, troubleshooting, 
 ¹ Image outputs depend on encoders available on your Mac. Same-format conversions are omitted. Animated and multipage images are not supported.
 
 ² Requires local LibreOffice. Complex Office layouts and fonts can render differently from Microsoft Office.
+
+## New in 0.4
+
+- **Lift Subject:** on-device Apple Vision creates a transparent PNG, sticker copy or white-background image.
+- **Sanitize:** local OCR suggests private-information boxes. Review every page, add or remove boxes, then export a separate copy. Both solid and frosted styles permanently replace covered pixels; the frosted style is decoration, not a blur. Detection can miss information, so review is required.
+- **Liquid Notch:** enable it in Settings, then drag a Finder file into the left **Quick Stash** bay to keep a reference, or into the right **Instant Pipeline** bay to run your selected pipeline. Sources stay in place.
+- **Quality lens:** while dragging over a supported image conversion wedge, hold **Space** for aligned source/output pixels, actual encoded size and measured SSIM. Release Space and drop to convert.
+- **Clipboard orb:** optional clipboard-image and screenshot observers offer local actions. Sanitize always opens its review before replacing the clipboard. Observers are off by default.
+- **Developer tools:** bounded JSON/YAML/CSV conversions, generated Swift schemas, conservative SVG minification, macOS app icon sets and color palette cards.
+- **Practice and Impact:** a sandbox uses synthetic files; local aggregate counters show output-size reduction and explicitly estimated time savings.
+
+See the [0.4 feature guide](docs/COMMERCIAL_PREVIEW.md) for behavior and limits. The downloadable CLT-built app does **not** include Shortcuts/Spotlight discovery metadata; the repository includes a separate full-Xcode build path for testing that integration.
 
 ## Using the wheel
 
@@ -128,7 +138,9 @@ It returns JSON and a nonzero exit status on errors. Use `FILEORBIT_SOFFICE`, `F
 
 Open `/tmp/FileOrbit-optical-preview/FileOrbit Preview.app`. It uses a separate bundle ID and preferences, does not install into Applications, and leaves the production shortcut alone. See [preview behavior and checks](docs/OPTICAL_PREVIEW.md).
 
-For Xcode’s canvas, enable `FILEORBIT_XCODE_PREVIEWS` under **Active Compilation Conditions**. The Light/Dark `#Preview` scenes generate a local PDF fixture and show the actual wheel, hub and parameter arcs. The normal SwiftPM build does not require Xcode’s preview macro plugin.
+Open `FileOrbit.xcodeproj` in full Xcode for native Debug builds with `FILEORBIT_XCODE_PREVIEWS` enabled. The Light/Dark scenes cover the wheel and new surfaces with safe local fixtures. The normal SwiftPM build does not require Xcode’s preview macro plugin.
+
+For an Xcode app with App Intents metadata, run `./scripts/build-xcode-app.sh /tmp/fileorbit-xcode`. It fails if metadata is missing. This is a separate developer build, not the bundled downloadable distribution; see [integration status](docs/COMMERCIAL_PREVIEW.md#shortcuts-spotlight-and-finder-services).
 
 ## Development and contributing
 

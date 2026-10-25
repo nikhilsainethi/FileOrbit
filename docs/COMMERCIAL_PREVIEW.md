@@ -1,6 +1,6 @@
-# FileOrbit 0.4 local preview
+# FileOrbit 0.4 feature guide
 
-This development preview adds the commercial feature blueprint in `docs/plans/2026-10-24-commercial-blueprint.md`. It is not a notarized public release. The installed 0.3 app and public GitHub release are not changed by building or running the separate preview.
+This preview implements the [local feature blueprint](plans/2026-10-24-commercial-blueprint.md). Use the [installation guide](INSTALL.md) for the published app. The optional isolated preview below has separate preferences and leaves the installed app unchanged. Neither build is Developer ID signed or notarized.
 
 ## Try the native UI
 
@@ -38,7 +38,7 @@ With full Xcode 26.2 or newer selected, run:
 ./scripts/build-xcode-app.sh /tmp/fileorbit-xcode
 ```
 
-The included `FileOrbit.xcodeproj` references the local FileOrbitCore package and lets Xcode perform metadata extraction. The script fails if `Metadata.appintents` is absent. Its native app target also registers **Services → Open in FileOrbit** for Finder selections. The isolated preview deliberately removes that registration so it cannot replace the installed handler. Full Xcode project execution, metadata discovery and Shortcuts/Spotlight UI registration have not been verified on this CLT-only development Mac. Run and verify them before a public release. Xcode builds use locally available helper tools; the SwiftPM distribution script bundles helpers from `FILEORBIT_VENDOR_DIR`.
+The included `FileOrbit.xcodeproj` references the local FileOrbitCore package and lets Xcode perform metadata extraction. The script fails if `Metadata.appintents` is absent. Its native app target also registers **Services → Open in FileOrbit** for Finder selections. The isolated preview deliberately removes that registration so it cannot replace the installed handler. Full Xcode project execution, metadata discovery and Shortcuts/Spotlight UI registration have not been verified on this CLT-only development Mac. Do not assume those integrations work in the downloadable CLT build. Check the [verification record](TESTING.md) for current full-Xcode coverage. Xcode builds use locally available helper tools; the SwiftPM distribution script bundles helpers from `FILEORBIT_VENDOR_DIR`.
 
 To make a transformation a Finder Quick Action after registration, add its FileOrbit action to a Shortcut, accept files as input, and enable **Use as Quick Action → Finder** in Shortcuts. Save/return the resulting IntentFile explicitly in that Shortcut.
 
@@ -46,8 +46,8 @@ Debug Xcode builds enable `FILEORBIT_XCODE_PREVIEWS`. Each new public SwiftUI su
 
 ## Verification and release gates
 
-See the delivered Verification report for the exact tested commit and counts. Source tests include real Vision OCR/segmentation, both irreversible fills, PDF text/metadata removal, native key-event safety, clipboard revision guards, cancellation, schema and SVG safety, actual SVG rendering equivalence, Swift schema compilation, real encoded-preview equivalence, SSIM, original preservation and impact/Undo accounting.
+See the [installed-release verification record](TESTING.md) for exact build evidence and the [isolated preview record](COMMERCIAL_VERIFICATION.md) for earlier observations. Source tests include real Vision OCR/segmentation, both irreversible fills, PDF text/metadata removal, native key-event safety, clipboard revision guards, cancellation, schema and SVG safety, actual SVG rendering equivalence, Swift schema compilation, real encoded-preview equivalence, SSIM, original preservation and impact/Undo accounting.
 
 On this development Mac, the first packaged OCR check failed with Apple TextRecognition error 1 while local model compilation was occurring. Both direct OCR probes and the unchanged full package passed on retry. Cold-start behavior remains part of release validation; a retry is not evidence that the first-run issue was fixed.
 
-Before publication: validate physical Finder gestures on the new signed build, cross-display/full-screen/Spaces transitions, screenshot notifications on the target Mac, full-Xcode metadata/canvas, supported macOS/architecture matrix, Developer ID signing/notarization and distribution. Existing 0.3 physical checks do not substitute for those new-build checks. Local development uses ad-hoc signing; never describe it as notarized or commercially certified.
+This remains a preview with limited hardware coverage. Cross-display/full-screen/Spaces transitions, screenshot notifications, full-Xcode canvas and system discovery, the broader macOS/architecture matrix, and Developer ID signing/notarization require additional validation. Installed-build Finder interaction results are recorded separately; earlier 0.3 results do not certify 0.4. Do not describe this preview as notarized or commercially certified.

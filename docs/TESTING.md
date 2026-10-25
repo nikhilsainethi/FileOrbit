@@ -1,5 +1,21 @@
 # Verification record — October 24, 2026
 
+## 0.4.0-preview.1 installed candidate — October 24, 2026
+
+The user approved the isolated 0.4 preview for installation and publication. The production candidate was built from application source commit `cb0884f6d2650e19381320cc4adaff544cb04b33`, verified as an extracted archive, and installed at `/Applications/FileOrbit.app`. Release-documentation and CI-only changes do not change the installed executable.
+
+- **195 source tests in 33 suites passed**, zero failures, 6.695 seconds, with real qpdf, resvg, cwebp and LibreOffice. Test and optimized release builds used strict Swift 6 mode and warnings-as-errors.
+- **29 extracted production-package checks passed with zero skips**, 52.441 seconds on the first production run. These include actual encoded output, PDF content, local Vision OCR, Office conversion, original hashes, bundled helpers and strict signatures.
+- **Seven package-verifier regression tests passed.**
+- **Installation integrity:** strict recursive signature verification passed. The installed GUI executable exactly matched the tested production bundle: SHA-256 `7bf343b8a77f322dd869f60da6fdc55ca44a5894aeeb14cdcfc67529c10b8fa1`. Archive SHA-256: `a9cd06f09ad641dc55f299979361f01798deaac0a5433965fdf0c186a40c52ac`.
+- **Installed UI conversion:** Glass Shelf converted the synthetic 4,096 × 4,096 PNG to a 610 KB JPEG. This was a native UI check, not evidence of physical modifier-drag delivery.
+- **Permission refresh:** the old ad-hoc Accessibility entry was replaced with the new installed app, with authentication performed by the user. After relaunch, both shortcut listeners registered with permission already active.
+- **Pending before publication:** physical double-Command, modifier/Spacebar drag, and the new notch drop interactions on this installed build; GitHub CI including the full-Xcode target and preview-scene compilation. A ready permission indicator alone does not prove physical event delivery.
+
+The earlier isolated preview record is in [COMMERCIAL_VERIFICATION.md](COMMERCIAL_VERIFICATION.md). It records local neural export, detected boxes, actual lens measurements, and the initial Apple OCR failure followed by an unchanged-archive retry. The production package run above passed without that retry; clean-machine OCR behavior still needs broader coverage.
+
+This is an ad-hoc-signed Apple Silicon preview, not a notarized release. The downloadable CLT-built app has no App Intents discovery metadata. Real Shortcuts/Spotlight discovery, Xcode canvas rendering, screenshot delivery, clipboard-orb hover, multi-display/Spaces/full-screen transitions, Intel hardware and older supported macOS versions are not certified by this local run. PII detection remains best effort and requires review.
+
 ## 0.3.0-preview.1 installed release validation — October 24, 2026
 
 The user approved the optical preview for installation and publication. The production bundle was built separately, extracted-package verified, and installed at `/Applications/FileOrbit.app`. Its GUI executable matched the tested package: SHA-256 `77b8cfbae19e7370b53e215a91786066ee48f42f39f69437370b4a377fc6fb65`. The release ZIP SHA-256 is `32194f5ad4fe9feb58cf3c2a29b69f6f266bc626e3516ed3c546e9f07ba4a147`. Strict recursive code-signature validation passed after installation. The previous installation was retained for rollback.

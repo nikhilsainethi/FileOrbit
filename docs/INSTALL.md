@@ -15,7 +15,7 @@ Older macOS versions and Intel builds have not yet been verified. This is an ear
 
 ## Download and install
 
-1. Open the [v0.3.0-preview.1 release](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.3.0-preview.1).
+1. Open the [v0.4.0-preview.1 release](https://github.com/nikhilsainethi/FileOrbit/releases/tag/v0.4.0-preview.1).
 2. Under **Assets**, download **FileOrbit-macOS-arm64.zip**. The automatically generated “Source code” archives contain the project, not the app.
 3. Double-click the ZIP to extract it.
 4. Drag **FileOrbit.app** into your **Applications** folder. Grant permissions to this installed copy, rather than to a copy in Downloads or a synced folder.
@@ -77,7 +77,20 @@ Hover over Compress or a multipage PDF image action for outer presets. The legen
 
 For PDF redaction, choose Modify → Redact, draw regions on each page, then export a separate copy. Redaction flattens all pages and removes searchable text and interactive objects. Inspect the result before sharing.
 
-Launch at login is available in Settings and is off by default. There is no automatic updater in this preview.
+### New local tools and drag surfaces
+
+- **Practice first:** Settings → **Practice in sandbox** opens synthetic sample files. Its outputs are saved in the practice folder.
+- **Liquid Notch:** enable **Settings → Spatial companions → Liquid Notch during Finder file drags**. Drag a file toward the top-center portal. Drop left on **Quick Stash** to retain a reference, or right on **Instant Pipeline** to run the **Pinned pipeline** selected in Settings. Pins do not move originals. Removing a clipboard-only pin removes its managed local copy.
+- **Quality lens:** drag an image, press your Convert modifier (Shift by default), hover a supported image format, then hold Space. The hub expands to show actual encoded size, a 200% center crop and measured sampled luminance SSIM. Release Space before dropping onto the format. SSIM is a visual comparison, not a guarantee that every detail is preserved.
+- **Sanitize:** open Modify → **Sanitize** for an image or PDF. Review all detected boxes, remove false positives and draw any missing regions. Acknowledge review before export. Both styles replace pixels permanently in a new copy and strip source metadata; PDF pages are all rasterized. The frosted style decorates the replacement. It does not blur the secret underneath. Inspect the result before sharing.
+- **Lift Subject:** Modify → **Lift Subject** runs Apple Vision locally and offers a transparent PNG, sticker copy or white background. Results depend on the image.
+- **Clipboard/screenshot orb:** enable each observer separately in Spatial companions. Hover the temporary orb to reveal actions. Clipboard actions replace the clipboard only if it has not changed since capture. Screenshot detection relies on Spotlight indexing and file access; it does not request Screen Recording. No clipboard history is retained.
+
+All three spatial observers are off by default on a fresh installation. Launch at login is also optional and off by default. There is no automatic updater in this preview.
+
+### Shortcuts and Spotlight
+
+The downloadable app is built using Command Line Tools. It does not include the discovery metadata required to expose FileOrbit actions in Shortcuts/Spotlight. Developers can use the separate full-Xcode project; see the [feature guide](COMMERCIAL_PREVIEW.md#shortcuts-spotlight-and-finder-services) for the build command and verification status.
 
 ## Troubleshooting
 

@@ -25,11 +25,18 @@ jobs:
           FILEORBIT_RESVG: ${{ github.workspace }}/.build/vendor/resvg/resvg
           FILEORBIT_CWEBP: ${{ github.workspace }}/.build/vendor/cwebp/cwebp
         run: |
-          ./scripts/test.sh
+          ./scripts/test.sh -Xswiftc -warnings-as-errors
           python3 scripts/test-package-verifier.py
       - name: Build app archive
         run: ./scripts/build-app.sh
       - name: Verify packaged app
         run: python3 scripts/verify-package.py dist/FileOrbit-macOS-arm64.zip
+      - name: Full Xcode app and intent metadata
+        run: ./scripts/build-xcode-app.sh "$RUNNER_TEMP/fileorbit-xcode"
+      - name: Compile SwiftUI preview scenes
+        run: >-
+          xcodebuild -project FileOrbit.xcodeproj -scheme FileOrbit
+          -configuration Debug -derivedDataPath "$RUNNER_TEMP/fileorbit-xcode"
+          CODE_SIGNING_ALLOWED=NO build
       - name: Whitespace
         run: git diff --check

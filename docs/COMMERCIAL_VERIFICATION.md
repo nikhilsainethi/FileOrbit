@@ -1,6 +1,6 @@
 # 0.4 preview verification — October 24, 2026
 
-This is an isolated development preview, not approval to replace the installed app or publish a release.
+This historical record describes the isolated development preview before approval. For the approved installed candidate and publication checks, see [TESTING.md](TESTING.md). The limits below describe that earlier run.
 
 ## Confirmed
 
