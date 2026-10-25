@@ -9,6 +9,7 @@ permissions:
 jobs:
   test:
     runs-on: macos-26
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
@@ -25,7 +26,7 @@ jobs:
           FILEORBIT_RESVG: ${{ github.workspace }}/.build/vendor/resvg/resvg
           FILEORBIT_CWEBP: ${{ github.workspace }}/.build/vendor/cwebp/cwebp
         run: |
-          ./scripts/test.sh -Xswiftc -warnings-as-errors
+          python3 scripts/ci-tests.py
           python3 scripts/test-package-verifier.py
       - name: Build app archive
         run: ./scripts/build-app.sh
@@ -40,3 +41,10 @@ jobs:
           CODE_SIGNING_ALLOWED=NO build
       - name: Whitespace
         run: git diff --check
+      - name: Preserve stalled-test stacks
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fileorbit-test-stacks
+          path: ${{ runner.temp }}/fileorbit-test-stacks
+          if-no-files-found: ignore
