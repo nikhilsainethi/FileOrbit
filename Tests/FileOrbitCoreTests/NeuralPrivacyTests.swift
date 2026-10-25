@@ -79,6 +79,23 @@ import CryptoKit
         }
         #expect(try Data(contentsOf: url) == original)
     }
+    @Test(.timeLimit(.minutes(1))) func concurrentInspectionsPreserveEverySourceAndComplete() async throws {
+        let (folder, url) = try fixture(); defer { try? FileManager.default.removeItem(at: folder) }
+        let original = try Data(contentsOf: url)
+        let documents = try await withThrowingTaskGroup(of: SanitizeDocument.self) { group in
+            for _ in 0..<6 {
+                group.addTask { try await NeuralProcessingActor().inspect(input: url) }
+            }
+            var results: [SanitizeDocument] = []
+            for try await document in group { results.append(document) }
+            return results
+        }
+        #expect(documents.count == 6)
+        #expect(documents.allSatisfy { $0.pages.count == 1 && $0.detections.contains { $0.kind == .email } })
+        #expect(try Data(contentsOf: url) == original)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path) == ["privacy.png"])
+    }
+
     @Test func changedSourceAndInvalidRegionsAreRejectedBeforePublication() async throws {
         let (folder, url) = try fixture(); defer { try? FileManager.default.removeItem(at: folder) }
         let actor = NeuralProcessingActor(), document = try await actor.inspect(input: url)

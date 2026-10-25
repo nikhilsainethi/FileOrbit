@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 import Vision
 import CoreImage
 import CoreML
@@ -36,6 +37,12 @@ public struct SanitizeDocument: Sendable {
 /// Vision requests and Core Image state never cross this actor. Review snapshots contain only
 /// bounded encoded pixels, geometry and category labels; OCR strings are not stored or logged.
 public actor NeuralProcessingActor {
+    // Vision's synchronous API can wait for Swift tasks internally. Keep those
+    // calls off the cooperative pool so concurrent inspections cannot exhaust it.
+    // One shared serial queue also bounds native model work across actor instances.
+    private static let workQueue = DispatchSerialQueue(label: "io.fileorbit.neural", qos: .userInitiated)
+    public nonisolated var unownedExecutor: UnownedSerialExecutor { Self.workQueue.asUnownedSerialExecutor() }
+
     public static let maximumPages = 100
     public static let maximumSnapshotPixels = 64_000_000
     public static let maximumSnapshotBytes = 134_217_728
